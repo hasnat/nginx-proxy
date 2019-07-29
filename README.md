@@ -313,6 +313,18 @@ $ docker run -d -p 80:80 -p 443:443 \
     -v /var/run/docker.sock:/tmp/docker.sock:ro \
     jwilder/nginx-proxy
 ```
+Or have your container with `VHOST_HTPASSWD`
+
+```
+$ docker run -d -p 80:80 -p 443:443 \
+    -v /var/run/docker.sock:/tmp/docker.sock:ro \
+    jwilder/nginx-proxy
+$ docker run -d \
+    -e VIRTUAL_HOST=whoami.local \
+    -e VHOST_HTPASSWD='abc:900150983CD24FB0D6963F7D28E17F72' `# this is abc:abc using md5` \
+    jwilder/whoami
+
+```
 
 You'll need apache2-utils on the machine where you plan to create the htpasswd file. Follow these [instructions](http://httpd.apache.org/docs/2.2/programs/htpasswd.html)
 
@@ -400,10 +412,14 @@ If you are using multiple hostnames for a single container (e.g. `VIRTUAL_HOST=e
     $ { echo 'proxy_cache my-cache;'; echo 'proxy_cache_valid  200 302  60m;'; echo 'proxy_cache_valid  404 1m;' } > /path/to/vhost.d/app.example.com_location
     $ ln -s /path/to/vhost.d/www.example.com /path/to/vhost.d/example.com
 
+You can also have `VHOST_CONF` environment variable in your container.
+
 #### Per-VIRTUAL_HOST location default configuration
 
 If you want most of your virtual hosts to use a default single `location` block configuration and then override on a few specific ones, add those settings to the `/etc/nginx/vhost.d/default_location` file. This file
 will be used on any virtual host which does not have a `/etc/nginx/vhost.d/{VIRTUAL_HOST}_location` file associated with it.
+
+You can also have `VHOST_LOCATION_CONF` environment variable in your container.
 
 ### Contributing
 
