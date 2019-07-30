@@ -127,7 +127,7 @@ server {
 {{ $vhost_root := or (first (groupByKeys $containers "Env.VIRTUAL_ROOT")) "/var/www/public" }}
 
 {{/* Get the SERVER_PASS By containers e.g. proxy_pass..., grpc_pass..., fastcgi_pass... */}}
-{{ $server_pass := or ($container.Env.SERVER_PASS) "" }}
+{{ $server_pass := or (first (groupByKeys $containers "Env.SERVER_PASS")) "" }}
 
 
 {{/* Get the first cert name defined by containers w/ the same vhost */}}
@@ -292,7 +292,6 @@ server {
 
 	location / {
 		set $target {{ trim $container_pass }};
-		{{ if eq $proto "uwsgi" }}
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
