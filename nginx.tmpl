@@ -105,6 +105,10 @@ server {
 {{/* Get the VIRTUAL_PROTO defined by containers w/ the same vhost, falling back to "http" */}}
 {{ $proto := trim (or (first (groupByKeys $containers "Env.VIRTUAL_PROTO")) "http") }}
 
+{{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }}
+
+{{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
+
 {{ $container_pass := (printf "%v:%v" (first (groupByKeys $containers "Name"))  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
 
 {{/* Get the NETWORK_ACCESS defined by containers w/ the same vhost, falling back to "external" */}}
@@ -225,6 +229,10 @@ server {
 	include /etc/nginx/vhost.d/default;
 	{{ end }}
 
+	{{ if not (eq $vhost_conf "") }}
+	{{ $vhost_conf }}
+	{{ end }}
+
 	location / {
 		set $target {{ trim $container_pass }};
 		{{ if ne $server_pass "" }}
@@ -248,6 +256,9 @@ server {
 		include {{ printf "/etc/nginx/vhost.d/%s_location" $host}};
 		{{ else if (exists "/etc/nginx/vhost.d/default_location") }}
 		include /etc/nginx/vhost.d/default_location;
+		{{ end }}
+		{{ if not (eq $vhost_location_conf "") }}
+		{{ $vhost_location_conf }}
 		{{ end }}
 	}
 }
@@ -275,6 +286,10 @@ server {
 	include /etc/nginx/vhost.d/default;
 	{{ end }}
 
+	{{ if not (eq $vhost_conf "") }}
+	{{ $vhost_conf }}
+	{{ end }}
+
 	location / {
 		set $target {{ trim $container_pass }};
 		{{ if eq $proto "uwsgi" }}
@@ -298,6 +313,9 @@ server {
 		include {{ printf "/etc/nginx/vhost.d/%s_location" $host}};
 		{{ else if (exists "/etc/nginx/vhost.d/default_location") }}
 		include /etc/nginx/vhost.d/default_location;
+		{{ end }}
+		{{ if not (eq $vhost_location_conf "") }}
+		{{ $vhost_location_conf }}
 		{{ end }}
 	}
 }
