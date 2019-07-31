@@ -232,9 +232,8 @@ server {
 	{{ if not (eq $vhost_conf "") }}
 	{{ $vhost_conf }}
 	{{ end }}
-
+	set $target {{ trim $container_pass }};
 	location / {
-		set $target {{ trim $container_pass }};
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
@@ -291,9 +290,8 @@ server {
 	{{ if not (eq $vhost_conf "") }}
 	{{ $vhost_conf }}
 	{{ end }}
-
+	set $target {{ trim $container_pass }};
 	location / {
-		set $target {{ trim $container_pass }};
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
