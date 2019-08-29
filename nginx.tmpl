@@ -1,6 +1,6 @@
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 
-proxy_cache_path /var/cache/nginx/main_cache levels=1:2 keys_zone=main_cache:10m;
+proxy_cache_path /var/cache/nginx/main_cache levels=1:2 keys_zone=main_cache:10m use_temp_path=off;
 
 # If we receive X-Forwarded-Proto, pass it through; otherwise, pass along the
 # scheme used to connect to this server
