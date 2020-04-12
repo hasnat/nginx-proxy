@@ -31,4 +31,13 @@ if [ "$socketMissing" = 1 -a "$1" = forego -a "$2" = start -a "$3" = '-r' ]; the
 	exit 1
 fi
 
+if [ ! -z "${ZIPKIN_CONFIG}" ]
+then
+    echo "${ZIPKIN_CONFIG}" > /etc/nginx/zipkin-config.json
+fi
+if [ ! -z "${JAEGER_CONFIG}" ]
+then
+    echo "${JAEGER_CONFIG}" > /etc/jaeger-config.json
+fi
+
 exec "$@"

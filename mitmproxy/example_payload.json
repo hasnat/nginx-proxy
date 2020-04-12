@@ -1,0 +1,31 @@
+[
+  {
+    "annotations": [
+      {
+        "endpoint": {
+          "ipv4": "172.19.0.4",
+          "port": 80,
+          "serviceName": "php-app"
+        },
+        "timestamp": 1577112702810541,
+        "value": "sr"
+      },
+      {
+        "endpoint": {
+          "ipv4": "172.19.0.4",
+          "port": 80,
+          "serviceName": "php-app"
+        },
+        "timestamp": 1577112703104333,
+        "value": "ss"
+      }
+    ],
+    "duration": 293792,
+    "id": "eb99ab6096b11940",
+    "name": "GET",
+    "parentId": "d6a475167914bcd4",
+    "timestamp": 1577112702810541,
+    "traceId": "8811e076264995cb",
+    "version": "php-4"
+  }
+]

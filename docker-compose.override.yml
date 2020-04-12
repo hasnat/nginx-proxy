@@ -1,6 +1,61 @@
 version: '2'
 services:
-  nginx:
+  nginx-proxy:
     build: .
     volumes:
       - ./conf.d:/etc/nginx/conf.d
+    environment:
+#      - 'ZIPKIN_CONFIG={"service_name": "nginx-proxy","collector_host": "zipkin"}'
+      - 'ZIPKIN_CONFIG={"service_name": "nginx-proxy","collector_host": "jaeger"}'
+#      - 'JAEGER_CONFIG={ "service_name": "nginx", "diabled": false, "reporter": { "logSpans": true, "localAgentHostPort": "jaeger:6831" }, "sampler": { "type": "const", "param": "1" } }'
+
+  zipkin:
+    container_name: zipkin
+    image: openzipkin/zipkin
+    environment:
+      - VIRTUAL_HOST=zipkin.*
+      - VIRTUAL_PORT=9411
+      - DISABLE_TRACING=true
+
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/all-in-one
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+      - VIRTUAL_HOST=jaeger.*
+      - VIRTUAL_PORT=16686
+      - DISABLE_TRACING=true
+    expose:
+      - "9411"
+
+
+  php-app:
+    container_name: php-app
+    build: php-app
+    volumes:
+    - ./php-app:/var/www/html
+    environment:
+#      - http_proxy=http://mitmproxy:8080/
+      - VIRTUAL_HOST=php-app.*
+      - VIRTUAL_PORT=80
+
+  php-app2:
+    container_name: php-app2
+    build: php-app
+    volumes:
+      - ./php-app:/var/www/html
+    environment:
+      #      - http_proxy=http://mitmproxy:8080/
+      - VIRTUAL_HOST=php-app2.*
+      - VIRTUAL_PORT=80
+
+  mitmproxy:
+    container_name: mitmproxy
+    build: mitmproxy
+    tty: true
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - VIRTUAL_HOST=mitmproxy.*
+      - VIRTUAL_PORT=8081

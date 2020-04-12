@@ -2,3 +2,4 @@
 **/.cache/
 .idea/
 conf.d
+.env

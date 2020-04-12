@@ -8,10 +8,11 @@ services:
       - "80:80"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
-      - ./conf.d:/etc/nginx/conf.d
+#      - ./conf.d:/etc/nginx/conf.d
 
   whoami:
+    container_name: whoami
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami.local
+      - VIRTUAL_HOST=whoami.*
       - VIRTUAL_PORT=8000

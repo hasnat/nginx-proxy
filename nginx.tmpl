@@ -1,3 +1,51 @@
+
+{{ $enable_zipkin := (ne $.Env.ZIPKIN_CONFIG "") }}
+{{ $enable_jaeger := (ne $.Env.JAEGER_CONFIG "") }}
+{{ $enable_opentracing := (or $enable_zipkin $enable_jaeger) }}
+{{ if $enable_opentracing }}
+load_module /usr/local/lib/ngx_http_opentracing_module.so;
+{{ end }}
+
+daemon off;
+worker_processes auto;
+pid /var/run/nginx.pid;
+
+events {
+    worker_connections 1024;
+}
+error_log /dev/stderr info;
+http {
+    sendfile off;
+    server_tokens off;
+    include /etc/nginx/mime.types;
+    lua_code_cache on;
+    client_body_buffer_size 1m;
+    #tcp_nopush on;
+    #tcp_nodelay on;
+    #keepalive_timeout 65;
+    #types_hash_max_size 2048;
+
+    # for stats check (/status)
+    vhost_traffic_status_zone;
+
+    error_log  /dev/stderr info;
+    access_log /dev/stdout;
+
+    # s3 cache
+    proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=S3_CACHE:10m max_size=10g inactive=60m;
+    proxy_temp_path /var/cache/nginx/temp;
+{{ if $enable_opentracing }}
+    log_format trace_log '$remote_addr - $remote_user [$time_local] "$request" '
+                               '$status $body_bytes_sent "$http_referer" '
+                               '"$http_user_agent" "$http_x_forwarded_for"'
+                               '$http_x_b3_traceid $opentracing_context_x_b3_traceid';
+{{ end }}
+{{ if $enable_zipkin }}
+    opentracing_load_tracer /usr/local/lib/libzipkin_opentracing_plugin.so /etc/nginx/zipkin-config.json;
+{{ end }}
+{{ if $enable_jaeger }}
+    opentracing_load_tracer /usr/local/lib/libjaegertracing_plugin.so /etc/jaeger-config.json;
+{{ end }}
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 
 proxy_cache_path /var/cache/nginx/main_cache levels=1:2 keys_zone=main_cache:10m use_temp_path=off;
@@ -39,6 +87,10 @@ map $scheme $proxy_x_forwarded_ssl {
 
 gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
 
+log_format httpproxy 'PROXY $host $remote_addr - $remote_user [$time_local] '
+                 '"$request" $status $body_bytes_sent '
+                 '"$http_referer" "$http_user_agent"';
+
 log_format vhost '$host $remote_addr - $remote_user [$time_local] '
                  '"$request" $status $body_bytes_sent '
                  '"$http_referer" "$http_user_agent"';
@@ -75,7 +127,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:80;
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 503;
 }
 
@@ -86,7 +138,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:443 ssl http2;
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/error vhost;
 	return 503;
 
 	ssl_session_tickets off;
@@ -110,6 +162,10 @@ server {
 {{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }}
 
 {{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
+
+{{ $tracing_disabled := eq (or (first (groupByKeys $containers "Env.DISABLE_TRACING")) "") "true" }}
+
+{{ $container_name := (printf "%v" (first (groupByKeys $containers "Name"))) }}
 
 {{ $container_pass := (printf "%v:%v" (first (groupByKeys $containers "Name"))  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
 
@@ -156,18 +212,28 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:80 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 301 https://$host$request_uri;
 }
 {{ end }}
 
+# {{ $tracing_disabled }}
+# {{ $enable_opentracing }}
+
+
 server {
-	server_name {{ $host }};
+	server_name {{ $host }} {{ $container_name }};
 	listen 443 ssl http2 {{ $default_server }};
 	{{ if $enable_ipv6 }}
 	listen [::]:443 ssl http2 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+
+	{{ if (and (not $tracing_disabled) $enable_opentracing) }}
+	opentracing on;
+	access_log /dev/stdout trace_log;
+	{{ else }}
+	access_log /dev/stdout vhost;
+	{{ end }}
 
 	{{ if eq $network_tag "internal" }}
 	# Only allow traffic from internal clients
@@ -236,6 +302,15 @@ server {
 	{{ end }}
 	set $target {{ trim $container_pass }};
 	location / {
+		{{ if (and (not $tracing_disabled) $enable_opentracing) }}
+		opentracing_operation_name $uri;
+		opentracing_propagate_context;
+#		opentracing_tag span.kind 'server';
+		opentracing_tag component $target;
+		opentracing_tag service $target;
+		opentracing_tag service.name $target;
+		opentracing_tag peer.service $target;
+		{{ end }}
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
@@ -246,6 +321,7 @@ server {
 		include fastcgi.conf;
 		fastcgi_pass $target;
 		{{ else }}
+		proxy_pass_request_headers on;
 		proxy_pass {{ trim $proto }}://$target;
 		{{ end }}
 
@@ -271,12 +347,18 @@ server {
 {{ if or (not $is_https) (eq $https_method "noredirect") }}
 
 server {
-	server_name {{ $host }};
+	server_name {{ $host }} {{ $container_name }};
 	listen 80 {{ $default_server }};
 	{{ if $enable_ipv6 }}
 	listen [::]:80 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+
+	{{ if (and (not $tracing_disabled) $enable_opentracing) }}
+	opentracing on;
+	access_log /dev/stdout trace_log;
+	{{ else }}
+	access_log /dev/stdout vhost;
+	{{ end }}
 
 	{{ if eq $network_tag "internal" }}
 	# Only allow traffic from internal clients
@@ -294,6 +376,15 @@ server {
 	{{ end }}
 	set $target {{ trim $container_pass }};
 	location / {
+		{{ if (and (not $tracing_disabled) $enable_opentracing) }}
+		opentracing_operation_name $uri;
+		opentracing_propagate_context;
+#		opentracing_tag span.kind 'server';
+		opentracing_tag component $target;
+		opentracing_tag service $target;
+		opentracing_tag service.name $target;
+		opentracing_tag peer.service $target;
+		{{ end }}
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
@@ -304,6 +395,7 @@ server {
 		include fastcgi.conf;
 		fastcgi_pass $target;
 		{{ else }}
+		proxy_pass_request_headers on;
 		proxy_pass {{ trim $proto }}://$target;
 		{{ end }}
 		{{ if (exists (printf "/etc/nginx/htpasswd/%s" $host)) }}
@@ -330,7 +422,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:443 ssl http2 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 500;
 
 	ssl_certificate /etc/nginx/certs/default.crt;
@@ -341,3 +433,4 @@ server {
 {{ end }}
 {{ end }}
 
+}
