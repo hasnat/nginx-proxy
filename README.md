@@ -321,10 +321,23 @@ $ docker run -d -p 80:80 -p 443:443 \
     jwilder/nginx-proxy
 $ docker run -d \
     -e VIRTUAL_HOST=whoami.local \
-    -e VHOST_HTPASSWD='abc:900150983CD24FB0D6963F7D28E17F72' `# this is abc:abc using md5` \
+    -e VHOST_HTPASSWD='admin:$apr1$C4yah1XV$YSZ5x5xEEbieYbYfpnQRv/;test:$apr1$yP1tWxNz$SyhZnvAzH2RbxjBaHKDP5.' `# encrypted from admin:admin and test:test` \
     jwilder/whoami
 ```
 You'll need apache2-utils on the machine where you plan to create the htpasswd file. Follow these [instructions](http://httpd.apache.org/docs/2.2/programs/htpasswd.html)
+
+Or have your container with `VHOST_HTPASSWD_PLAIN` to pass in plain password later to be encrypted within nginx container.
+
+```
+$ docker run -d -p 80:80 -p 443:443 \
+    -v /var/run/docker.sock:/tmp/docker.sock:ro \
+    jwilder/nginx-proxy
+$ docker run -d \
+    -e VIRTUAL_HOST=whoami.local \
+    -e VHOST_HTPASSWD_PLAIN='admin:admin;test:test' `# will be encrypted within container` \
+    jwilder/whoami
+```
+When passing htpasswd as plain, script will encrypt it using `openssl passwd -apr1` for use in htpasswd file
 
 ### Custom Nginx Configuration
 

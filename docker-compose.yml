@@ -13,5 +13,13 @@ services:
   whoami:
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami.local
+      - VIRTUAL_HOST=whoami.127.0.0.1.xip.io
       - VIRTUAL_PORT=8000
+
+  password:
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=password.127.0.0.1.xip.io
+      - VIRTUAL_PORT=8000
+      - VHOST_HTPASSWD_PLAIN=admin:admin;test:test
+      - "VHOST_HTPASSWD=admin1:$$apr1$$C4yah1XV$$YSZ5x5xEEbieYbYfpnQRv/;test1:$$apr1$$yP1tWxNz$$SyhZnvAzH2RbxjBaHKDP5."
