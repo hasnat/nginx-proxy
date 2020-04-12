@@ -21,5 +21,5 @@ services:
     environment:
       - VIRTUAL_HOST=password.127.0.0.1.xip.io
       - VIRTUAL_PORT=8000
-      - VHOST_HTPASSWD_PLAIN=admin:admin;test:abc
-      - VHOST_HTPASSWD=admin1:admin;test1:abc
+      - VHOST_HTPASSWD_PLAIN=admin:admin;test:test
+      - "VHOST_HTPASSWD=admin1:$$apr1$$C4yah1XV$$YSZ5x5xEEbieYbYfpnQRv/;test1:$$apr1$$yP1tWxNz$$SyhZnvAzH2RbxjBaHKDP5."
