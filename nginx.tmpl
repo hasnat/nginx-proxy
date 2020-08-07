@@ -1,3 +1,21 @@
+daemon off;
+worker_processes  auto;
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+
+    keepalive_timeout  65;
+
+
+
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 
 proxy_cache_path /var/cache/nginx/main_cache levels=1:2 keys_zone=main_cache:10m use_temp_path=off;
@@ -41,7 +59,7 @@ gzip_types text/plain text/css application/javascript application/json applicati
 
 log_format vhost '$host $remote_addr - $remote_user [$time_local] '
                  '"$request" $status $body_bytes_sent '
-                 '"$http_referer" "$http_user_agent"';
+                 '"$http_referer" "$http_user_agent"\n"$http_ssl_ja3"\n\n"$http_ssl_ja3_hash"\n';
 
 access_log off;
 
@@ -75,7 +93,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:80;
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 503;
 }
 
@@ -86,7 +104,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:443 ssl http2;
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 503;
 
 	ssl_session_tickets off;
@@ -156,7 +174,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:80 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 301 https://$host$request_uri;
 }
 {{ end }}
@@ -167,7 +185,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:443 ssl http2 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 
 	{{ if eq $network_tag "internal" }}
 	# Only allow traffic from internal clients
@@ -246,6 +264,8 @@ server {
 		include fastcgi.conf;
 		fastcgi_pass $target;
 		{{ else }}
+		proxy_set_header                ja3 $http_ssl_ja3;
+		proxy_set_header                ja3-hash $http_ssl_ja3_hash;
 		proxy_pass {{ trim $proto }}://$target;
 		{{ end }}
 
@@ -276,7 +296,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:80 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 
 	{{ if eq $network_tag "internal" }}
 	# Only allow traffic from internal clients
@@ -330,7 +350,7 @@ server {
 	{{ if $enable_ipv6 }}
 	listen [::]:443 ssl http2 {{ $default_server }};
 	{{ end }}
-	access_log /var/log/nginx/access.log vhost;
+	access_log /dev/stdout vhost;
 	return 500;
 
 	ssl_certificate /etc/nginx/certs/default.crt;
@@ -341,3 +361,4 @@ server {
 {{ end }}
 {{ end }}
 
+}

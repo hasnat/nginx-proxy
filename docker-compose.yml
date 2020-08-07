@@ -1,14 +1,18 @@
 version: '2'
+
 services:
-  nginx-proxy:
-    image: jwilder/nginx-proxy
+
+  nginx:
+    container_name: nginx
+    image: hasnat/nginx-proxy
     build: .
-    container_name: nginx-proxy
+    restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - ./conf.d:/etc/nginx/conf.d
+      - "./your_ssl_certs:/etc/nginx/certs:ro"
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
 
   whoami:
     image: jwilder/whoami
@@ -16,10 +20,22 @@ services:
       - VIRTUAL_HOST=whoami.127.0.0.1.xip.io
       - VIRTUAL_PORT=8000
 
-  password:
-    image: jwilder/whoami
+  htpasswd-plain:
+    image: hasnat/http-env-dump
     environment:
-      - VIRTUAL_HOST=password.127.0.0.1.xip.io
-      - VIRTUAL_PORT=8000
+      - VIRTUAL_HOST=htpasswd-plain.127.0.0.1.xip.io
+      - VIRTUAL_PORT=8080
       - VHOST_HTPASSWD_PLAIN=admin:admin;test:test
+
+  htpasswd:
+    image: hasnat/http-env-dump
+    environment:
+      - VIRTUAL_HOST=htpasswd.127.0.0.1.xip.io
+      - VIRTUAL_PORT=8080
       - "VHOST_HTPASSWD=admin1:$$apr1$$C4yah1XV$$YSZ5x5xEEbieYbYfpnQRv/;test1:$$apr1$$yP1tWxNz$$SyhZnvAzH2RbxjBaHKDP5."
+
+  ssl:
+    image: mendhak/http-https-echo
+    environment:
+      - VIRTUAL_HOST=ssl.127.0.0.1.xip.io
+      - VIRTUAL_PORT=80
