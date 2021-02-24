@@ -408,7 +408,27 @@ If you are using multiple hostnames for a single container (e.g. `VIRTUAL_HOST=e
 If you want most of your virtual hosts to use a default single configuration and then override on a few specific ones, add those settings to the `/etc/nginx/vhost.d/default` file. This file
 will be used on any virtual host which does not have a `/etc/nginx/vhost.d/{VIRTUAL_HOST}` file associated with it.
 
-You can also have `VHOST_CONF` environment variable in your container.
+For personalized container blockspecific nginx config.
+You can have environment variable in your container `VHOST_HTTP_CONF`, `VHOST_SERVER_CONF`, `VHOST_LOCATION_CONF`.
+e.g. for limits/cache initializations.
+```
+http  {
+...
+limit_zone gulag $binary_remote_addr 10m;  # <-- VHOST_HTTP_CONF
+...
+server {
+...
+limit_conn gulag 88;                       # <-- VHOST_SERVER_CONF
+...
+location /vip {
+...
+limit_conn gulag 1;                       # <-- VHOST_LOCATION_CONF
+...
+}}}
+   
+```
+
+note: deprecated `VHOST_CONF` is same as `VHOST_SERVER_CONF`.
 
 #### Per-VIRTUAL_HOST location configuration
 
