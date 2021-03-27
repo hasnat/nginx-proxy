@@ -246,7 +246,7 @@ server {
 		uwsgi_pass {{ trim $proto }}://$target;
 		{{ else if eq $proto "fastcgi" }}
 		root   {{ trim $vhost_root }};
-		include fastcgi.conf;
+		include fastcgi_params;
 		fastcgi_pass $target;
 		{{ else }}
 		proxy_pass {{ trim $proto }}://$target;
@@ -303,7 +303,7 @@ server {
 		uwsgi_pass {{ trim $proto }}://$target;
 		{{ else if eq $proto "fastcgi" }}
 		root   {{ trim $vhost_root }};
-		include fastcgi.conf;
+		include fastcgi_params;
 		fastcgi_pass $target;
 		{{ else }}
 		proxy_pass {{ trim $proto }}://$target;
