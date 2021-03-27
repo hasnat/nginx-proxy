@@ -6,7 +6,6 @@ proxy_cache_path /tmp/nginx_cache levels=1:2 keys_zone=tmp_nginx_cache:10m use_t
 {{ $external_http_port := coalesce $.Env.HTTP_PORT "80" }}
 {{ $external_https_port := coalesce $.Env.HTTPS_PORT "443" }}
 
-
 {{ define "ssl_policy" }}
 	{{ if eq .ssl_policy "Mozilla-Modern" }}
 		ssl_protocols TLSv1.3;
@@ -168,6 +167,8 @@ server {
 
 {{ trim (or (first (groupByKeys $containers "Env.VHOST_HTTP_CONF")) "") }}
 
+{{ $container_pass := (printf "%v:%v" (first (groupByKeys $containers "Name"))  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
+
 {{/* Get the NETWORK_ACCESS defined by containers w/ the same vhost, falling back to "external" */}}
 {{ $network_tag := or (first (groupByKeys $containers "Env.NETWORK_ACCESS")) "external" }}
 
@@ -275,20 +276,21 @@ server {
 	{{ $vhost_conf }}
 	{{ $vhost_server_conf }}
 
+	set $target {{ trim $container_pass }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
 		include uwsgi_params;
-		uwsgi_pass {{ trim $proto }}://{{ trim $upstream_name }};
+		uwsgi_pass {{ trim $proto }}://$target;
 		{{ else if eq $proto "fastcgi" }}
 		root   {{ trim $vhost_root }};
 		include fastcgi_params;
-		fastcgi_pass {{ trim $upstream_name }};
+		fastcgi_pass $target;
 		{{ else if eq $proto "grpc" }}
-		grpc_pass {{ trim $proto }}://{{ trim $upstream_name }};
+		grpc_pass {{ trim $proto }}://$target;
 		{{ else }}
-		proxy_pass {{ trim $proto }}://{{ trim $upstream_name }};
+		proxy_pass {{ trim $proto }}://$target;
 		{{ end }}
 
 		{{ if (exists (printf "/etc/nginx/htpasswd/%s" $host)) }}
@@ -333,20 +335,21 @@ server {
 	{{ $vhost_conf }}
 	{{ $vhost_server_conf }}
 
+	set $target {{ trim $container_pass }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
 		{{ else if eq $proto "uwsgi" }}
 		include uwsgi_params;
-		uwsgi_pass {{ trim $proto }}://{{ trim $upstream_name }};
+		uwsgi_pass {{ trim $proto }}://$target;
 		{{ else if eq $proto "fastcgi" }}
 		root   {{ trim $vhost_root }};
 		include fastcgi_params;
-		fastcgi_pass {{ trim $upstream_name }};
+		fastcgi_pass $target;
 		{{ else if eq $proto "grpc" }}
-		grpc_pass {{ trim $proto }}://{{ trim $upstream_name }};
+		grpc_pass {{ trim $proto }}://$target;
 		{{ else }}
-		proxy_pass {{ trim $proto }}://{{ trim $upstream_name }};
+		proxy_pass {{ trim $proto }}://$target;
 		{{ end }}
 		{{ if (exists (printf "/etc/nginx/htpasswd/%s" $host)) }}
 		limit_except OPTIONS {
