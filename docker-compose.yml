@@ -1,4 +1,4 @@
-version: '2'
+version: '2.4'
 services:
   nginx-proxy:
     image: jwilder/nginx-proxy
@@ -6,17 +6,29 @@ services:
     container_name: nginx-proxy
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - ./conf.d:/etc/nginx/conf.d
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "${A4G_SSL_CERTS_LOCATION}:/etc/nginx/certs"
+
 
   whoami:
+    container_name: whoami
     image: jwilder/whoami
     environment:
       - VIRTUAL_HOST=whoami.127.0.0.1.xip.io
       - VIRTUAL_PORT=8000
 
-  password:
+  whoami-ssl:
+    container_name: whoami-ssl
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=whoami-ssl.local.a4g.com
+      - VIRTUAL_PORT=8000
+
+
+  whoami-password:
+    container_name: whoami-password
     image: jwilder/whoami
     environment:
       - VIRTUAL_HOST=password.127.0.0.1.xip.io
