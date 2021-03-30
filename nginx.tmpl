@@ -86,11 +86,16 @@ map $scheme $proxy_x_forwarded_ssl {
 
 gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
 
+js_set $headers_log headers_log;
+js_set $headers_and_body_log headers_and_body_log;
+log_format headers_log escape=none '$headers_log';
+log_format headers_and_body_log escape=none '$headers_and_body_log';
+
 log_format vhost '$host $remote_addr - $remote_user [$time_local] '
                  '"$request" $status $body_bytes_sent '
                  '"$http_referer" "$http_user_agent"';
 
-access_log off;
+access_log /dev/stdout vhost;
 
 {{/* Get the SSL_POLICY defined by this container, falling back to "Mozilla-Intermediate" */}}
 {{ $ssl_policy := or ($.Env.SSL_POLICY) "Mozilla-Intermediate" }}
@@ -114,13 +119,12 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
 proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
 proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
-proxy_set_header ja3 $ja3;
-proxy_set_header ja3-hash $ja3_hash;
+
 # Mitigate httpoxy attack (see README for details)
 proxy_set_header Proxy "";
 {{ end }}
 
-{{ $access_log := (or (and (not $.Env.DISABLE_ACCESS_LOGS) "access_log /var/log/nginx/access.log vhost;") "") }}
+{{ $access_log := (or (and (not $.Env.DISABLE_ACCESS_LOGS) "access_log /dev/stdout vhost;") "") }}
 
 {{ $enable_ipv6 := eq (or ($.Env.ENABLE_IPV6) "") "true" }}
 server {
@@ -166,6 +170,7 @@ server {
 {{ $vhost_server_conf := trim (or (first (groupByKeys $containers "Env.VHOST_SERVER_CONF")) "") }}
 {{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
 
+{{ $access_log := trim (or (first (groupByKeys $containers "Env.VHOST_ACCESS_LOG")) $access_log) }}
 {{ trim (or (first (groupByKeys $containers "Env.VHOST_HTTP_CONF")) "") }}
 
 {{ $container_pass := (printf "%v:%v" (first (groupByKeys $containers "Name"))  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}

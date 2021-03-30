@@ -4,13 +4,8 @@ ENV NGINX_VERSION=1.18.0 \
     NGINX_MODULE_VTS_VERSION=0.1.18 \
     HEADERS_MORE_NGINX_MODULE_VERSION=0.33 \
     JA3_NGINX_MODULE_VERSION=03.2021.1 \
-    LUA_JSON_VERSION=1.2.3 \
-    LUA_NGINX_MODULE_VERSION=0.10.19 \
     NGX_DEVEL_KIT_VERSION=0.3.1 \
-    STREAM_LUA_NGINX_MODULE_VERSION=0.0.9 \
-    LUAJIT_VERSION=2.1-20201229 \
-    LUA_RESTY_SOCKPROC_VERSION=92aba736027bb5d96e190b71555857ac5bb6b2be \
-    LUA_RESTY_SHELL_VERSION=955243d70506c21e7cc29f61d745d1a8a718994f
+    NJS_NGINX_MODULE_VERSION=0.5.2
 
 RUN apt-get -y update && apt-get install -y gnupg wget unzip ca-certificates curl openssl git
 RUN echo "deb http://nginx.org/packages/debian/ buster nginx" >> /etc/apt/sources.list.d/nginx.list && \
@@ -44,75 +39,7 @@ RUN cd /nginx-modules && \
     cd /nginx-modules/nginx-module-ja3/openssl && ./config -d && make && make install
 
 
-RUN cd /nginx-modules && \
-    wget -O luajit-${LUAJIT_VERSION}.zip https://github.com/openresty/luajit2/archive/refs/tags/v${LUAJIT_VERSION}.zip && \
-    unzip luajit-${LUAJIT_VERSION}.zip  && \
-    mv luajit2-${LUAJIT_VERSION} luajit && \
-    cd luajit && make && make install && cd .. \
-    rm luajit-${LUAJIT_VERSION}.zip
 
-
-RUN mkdir -p /lua-modules /lua/lib
-#RUN tail -f /dev/null
-
-
-# for logger's jsonlines
-RUN cd /lua-modules && \
-    wget -O lua-json-${LUA_JSON_VERSION}.zip https://github.com/grafi-tt/lunajson/archive/refs/tags/${LUA_JSON_VERSION}.zip && \
-    unzip lua-json-${LUA_JSON_VERSION}.zip  && \
-    mv lunajson-${LUA_JSON_VERSION}/src /lua/lib/luajson && \
-    rm lua-json-${LUA_JSON_VERSION}.zip
-
-# for lua nginx module used by logger
-RUN cd /nginx-modules && \
-    wget -O ngx_devel_kit-${NGX_DEVEL_KIT_VERSION}.zip https://github.com/simplresty/ngx_devel_kit/archive/v${NGX_DEVEL_KIT_VERSION}.zip && \
-    unzip ngx_devel_kit-${NGX_DEVEL_KIT_VERSION}.zip && \
-    mv ngx_devel_kit-${NGX_DEVEL_KIT_VERSION} ngx_devel_kit && \
-    rm ngx_devel_kit-${NGX_DEVEL_KIT_VERSION}.zip
-#RUN tail -f /dev/null
-# for lua nginx module used by logger
-RUN cd /nginx-modules && \
-    wget -O lua-nginx-module-${LUA_NGINX_MODULE_VERSION}.zip https://github.com/openresty/lua-nginx-module/archive/v${LUA_NGINX_MODULE_VERSION}.zip &&\
-    unzip lua-nginx-module-${LUA_NGINX_MODULE_VERSION}.zip && \
-    mv lua-nginx-module-${LUA_NGINX_MODULE_VERSION} lua-nginx-module && \
-    rm lua-nginx-module-${LUA_NGINX_MODULE_VERSION}.zip
-RUN cd /nginx-modules && \
-    wget -O stream-lua-nginx-module-${STREAM_LUA_NGINX_MODULE_VERSION}.zip https://github.com/openresty/stream-lua-nginx-module/archive/refs/tags/v${STREAM_LUA_NGINX_MODULE_VERSION}.zip &&\
-    unzip stream-lua-nginx-module-${STREAM_LUA_NGINX_MODULE_VERSION}.zip && \
-    mv stream-lua-nginx-module-${STREAM_LUA_NGINX_MODULE_VERSION} stream-lua-nginx-module && \
-    rm stream-lua-nginx-module-${STREAM_LUA_NGINX_MODULE_VERSION}.zip
-
-# for logger to use shell for making pretty dated directories in a non-blocking thread
-RUN cd /lua-modules && \
-    wget -O sockproc-${LUA_RESTY_SOCKPROC_VERSION}.zip https://github.com/juce/sockproc/archive/${LUA_RESTY_SOCKPROC_VERSION}.zip && \
-    unzip sockproc-${LUA_RESTY_SOCKPROC_VERSION}.zip && \
-#    git clone --depth 1 https://github.com/juce/sockproc -b local ${LUA_RESTY_SOCKPROC_VERSION} && \
-    cd sockproc-${LUA_RESTY_SOCKPROC_VERSION}/ && \
-    make && \
-    mv sockproc /usr/local/bin/ && \
-    rm ../sockproc-${LUA_RESTY_SOCKPROC_VERSION}.zip
-RUN cd /lua-modules && \
-    wget -O lua-resty-shell-${LUA_RESTY_SHELL_VERSION}.zip https://github.com/juce/lua-resty-shell/archive/${LUA_RESTY_SHELL_VERSION}.zip && \
-    unzip lua-resty-shell-${LUA_RESTY_SHELL_VERSION}.zip && \
-#    git clone --depth 1 https://github.com/juce/lua-resty-shell -b local ${LUA_RESTY_SHELL_VERSION} && \
-    mkdir -p /lua/lib/resty && cp -r lua-resty-shell-${LUA_RESTY_SHELL_VERSION}/lib/resty/* /lua/lib/resty/ && \
-    rm lua-resty-shell-${LUA_RESTY_SHELL_VERSION}.zip
-ENV LUA_RESTY_CORE_VERSION=0.1.21
-RUN cd /lua-modules && \
-    wget -O lua-resty-core-${LUA_RESTY_CORE_VERSION}.zip https://github.com/openresty/lua-resty-core/archive/refs/tags/v${LUA_RESTY_CORE_VERSION}.zip && \
-    unzip lua-resty-core-${LUA_RESTY_CORE_VERSION}.zip && \
-    mkdir -p /lua/lib/resty && cp -r lua-resty-core-${LUA_RESTY_CORE_VERSION}/lib/resty/* /lua/lib/resty/ && \
-    rm lua-resty-core-${LUA_RESTY_CORE_VERSION}.zip
-
-
-ENV LUA_RESTY_LRUCACHE_VERSION=0.10
-
-RUN cd /lua-modules && \
-    wget -O lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.zip https://github.com/openresty/lua-resty-lrucache/archive/refs/tags/v${LUA_RESTY_LRUCACHE_VERSION}.zip && \
-    unzip lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.zip && \
-#    git clone --depth 1 https://github.com/juce/lua-resty-shell -b local ${LUA_RESTY_SHELL_VERSION} && \
-    mkdir -p /lua/lib/resty && cp -r lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}/lib/resty/* /lua/lib/resty/ && \
-    rm lua-resty-lrucache-${LUA_RESTY_LRUCACHE_VERSION}.zip
 
 RUN cd /nginx-modules && \
     wget -O nginx-module-vts-${NGINX_MODULE_VTS_VERSION}.zip https://github.com/vozlt/nginx-module-vts/archive/v${NGINX_MODULE_VTS_VERSION}.zip && \
@@ -121,13 +48,18 @@ RUN cd /nginx-modules && \
     rm nginx-module-vts-${NGINX_MODULE_VTS_VERSION}.zip
 
 RUN cd /nginx-modules && \
+    wget -O nginx-module-njs-${NJS_NGINX_MODULE_VERSION}.zip https://github.com/nginx/njs/archive/refs/tags/${NJS_NGINX_MODULE_VERSION}.zip && \
+    unzip nginx-module-njs-${NJS_NGINX_MODULE_VERSION}.zip  && \
+    mv njs-${NJS_NGINX_MODULE_VERSION} nginx-module-njs && \
+    rm nginx-module-njs-${NJS_NGINX_MODULE_VERSION}.zip
+
+RUN cd /nginx-modules && \
     wget -O headers-more-nginx-module-${HEADERS_MORE_NGINX_MODULE_VERSION}.zip https://github.com/openresty/headers-more-nginx-module/archive/v${HEADERS_MORE_NGINX_MODULE_VERSION}.zip && \
     unzip headers-more-nginx-module-${HEADERS_MORE_NGINX_MODULE_VERSION}.zip  && \
     mv headers-more-nginx-module-${HEADERS_MORE_NGINX_MODULE_VERSION} headers-more-nginx-module && \
     rm headers-more-nginx-module-${HEADERS_MORE_NGINX_MODULE_VERSION}.zip
-#RUN tail -f /dev/null
-ENV LUAJIT_LIB=/usr/local/lib \
-    LUAJIT_INC=/usr/local/include/luajit-2.1
+
+
 
 RUN cd nginx && \
     ./configure --prefix=/etc/nginx \
@@ -159,9 +91,7 @@ RUN cd nginx && \
     --add-dynamic-module=/nginx-modules/nginx-module-ja3  \
     --add-dynamic-module=/nginx-modules/headers-more-nginx-module \
     --add-dynamic-module=/nginx-modules/nginx-module-vts \
-    --add-dynamic-module=/nginx-modules/ngx_devel_kit \
-    --add-dynamic-module=/nginx-modules/stream-lua-nginx-module \
-    --add-dynamic-module=/nginx-modules/lua-nginx-module && \
+    --add-dynamic-module=/nginx-modules/nginx-module-njs/nginx && \
     make && make install
 
 RUN    rm -rf /nginx*
@@ -191,18 +121,14 @@ RUN apt-get update \
  && rm -r /var/lib/apt/lists/*
 ENV LD_LIBRARY_PATH=/usr/local/lib
 COPY --from=nginx-builder /etc/nginx/ /etc/nginx/
-COPY --from=nginx-builder /lua /lua
-COPY --from=nginx-builder /usr/local/lib/libluajit-5.1.so.2 /usr/local/lib/
 
 COPY --from=nginx-builder /usr/sbin/nginx \
     /usr/local/bin/openssl \
     /usr/local/bin/c_rehash \
     /usr/local/bin/forego \
-    /usr/local/bin/sockproc \
     /usr/local/bin/docker-gen \
-    /usr/local/bin/luajit \
     /usr/sbin/
-RUN ln -s luajit /usr/local/bin/lua
+
 #USER root
 #RUN cat /etc/passwd
 RUN groupadd nginx && useradd -g nginx nginx && usermod -s /bin/false nginx && \
@@ -223,7 +149,7 @@ COPY network_internal.conf /etc/nginx/
 COPY . /app/
 WORKDIR /app/
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY /lua/logger /lua/
+COPY /njs/ /njs/
 
 
 ENV DOCKER_HOST unix:///tmp/docker.sock
