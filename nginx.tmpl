@@ -169,6 +169,9 @@ server {
 {{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }} # deprecated
 {{ $vhost_server_conf := trim (or (first (groupByKeys $containers "Env.VHOST_SERVER_CONF")) "") }}
 {{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
+{{ $vhost_vts_conf := trim (or (first (groupByKeys $containers "Env.VHOST_VTS_CONF")) "") }}
+{{ $vhost_vts_enable := eq (or (trim (or (first (groupByKeys $containers "Env.VHOST_VTS_ENABLE")) "")) "") "true" }}
+
 
 {{ $access_log := trim (or (first (groupByKeys $containers "Env.VHOST_ACCESS_LOG")) $access_log) }}
 {{ trim (or (first (groupByKeys $containers "Env.VHOST_HTTP_CONF")) "") }}
@@ -229,7 +232,15 @@ server {
 		try_files $uri =404;
 		break;
 	}
-	
+	{{ if $vhost_vts_enable }}
+		{{ $vhost_vts_conf }}
+		{{ if eq $vhost_vts_conf "" }}
+			location /status/format/prometheus {
+				vhost_traffic_status_display;
+				vhost_traffic_status_display_format prometheus;
+			}
+		{{ end }}
+	{{ end }}
 	location / {
 		return 301 https://$host$request_uri;
 	}
@@ -281,7 +292,15 @@ server {
 
 	{{ $vhost_conf }}
 	{{ $vhost_server_conf }}
-
+	{{ if $vhost_vts_enable }}
+		{{ $vhost_vts_conf }}
+		{{ if eq $vhost_vts_conf "" }}
+			location /status/format/prometheus {
+				vhost_traffic_status_display;
+				vhost_traffic_status_display_format prometheus;
+			}
+		{{ end }}
+	{{ end }}
 	set $target {{ trim $container_pass }};
 	location / {
 		{{ if ne $server_pass "" }}
@@ -340,7 +359,15 @@ server {
 
 	{{ $vhost_conf }}
 	{{ $vhost_server_conf }}
-
+	{{ if $vhost_vts_enable }}
+		{{ $vhost_vts_conf }}
+		{{ if eq $vhost_vts_conf "" }}
+			location /status/format/prometheus {
+				vhost_traffic_status_display;
+				vhost_traffic_status_display_format prometheus;
+			}
+		{{ end }}
+	{{ end }}
 	set $target {{ trim $container_pass }};
 	location / {
 		{{ if ne $server_pass "" }}

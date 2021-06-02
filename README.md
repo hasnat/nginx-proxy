@@ -299,6 +299,25 @@ is enabled with `max-age=31536000` for HTTPS sites.  You can disable HSTS with t
 even if they type in `http://` manually.  The only way to get to an HTTP site after receiving an HSTS 
 response is to clear your browser's HSTS cache.
 
+### VTS module Support
+
+To enable vts module tracking (defaults to one zone tracks all domains)
+Enable any container to have `VHOST_VTS_ENABLE=true` defaults to false.
+This will add to following container `location /status/format/prometheus { vhost_traffic_status_display; vhost_traffic_status_display_format prometheus; }` if `VHOST_VTS_CONF=true`,
+this can be customized with `VHOST_VTS_CONF` environment variable on container.
+
+```
+$ docker run -d -p 80:80 -p 443:443 \
+    -v /var/run/docker.sock:/tmp/docker.sock:ro \
+    jwilder/nginx-proxy
+$ docker run -d \
+    -e "VIRTUAL_HOST=whoami.local" \
+    -e "VHOST_VTS_ENABLE=true" # defaults to false\
+    -e "VHOST_VTS_CONF=location /status/format/prometheus { vhost_traffic_status_display; vhost_traffic_status_display_format prometheus; }" # <- default/optional if VHOST_VTS_ENABLE=true \
+    jwilder/whoami
+```
+Or have your container with `VHOST_HTPASSWD`
+
 ### Basic Authentication Support
 
 In order to be able to secure your virtual host, you have to create a file named as its equivalent VIRTUAL_HOST variable on directory
