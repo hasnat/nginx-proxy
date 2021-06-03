@@ -1,3 +1,44 @@
+load_module /etc/nginx/modules/ngx_http_ssl_ja3_module.so;
+load_module /etc/nginx/modules/ngx_stream_ssl_ja3_preread_module.so;
+load_module /etc/nginx/modules/ngx_http_js_module.so;
+load_module /etc/nginx/modules/ngx_http_headers_more_filter_module.so;
+load_module /etc/nginx/modules/ngx_http_vhost_traffic_status_module.so;
+
+user  www-data;
+worker_processes  auto;
+
+error_log  stderr warn;
+pid        /var/run/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    js_include /njs/logger/logger.js;
+
+
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '$host - $remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /dev/stdout  main;
+
+    sendfile        on;
+    #tcp_nopush     on;
+
+    keepalive_timeout  65;
+
+    gzip  on;
+    vhost_traffic_status_zone;
+
+
+
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 
 # containers should use their own cache, one shared cache available for no-guarantee
@@ -176,8 +217,11 @@ server {
 {{ $access_log := trim (or (first (groupByKeys $containers "Env.VHOST_ACCESS_LOG")) $access_log) }}
 {{ trim (or (first (groupByKeys $containers "Env.VHOST_HTTP_CONF")) "") }}
 
-{{ $container_pass := (printf "%v:%v" (first (groupByKeys $containers "Name"))  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
-
+{{ $container_name := (first (groupByKeys $containers "Name")) }}
+{{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
+upstream {{ trim $container_name }} {
+    server {{ trim $container_pass }};
+}
 {{/* Get the NETWORK_ACCESS defined by containers w/ the same vhost, falling back to "external" */}}
 {{ $network_tag := or (first (groupByKeys $containers "Env.NETWORK_ACCESS")) "external" }}
 
@@ -301,7 +345,7 @@ server {
 			}
 		{{ end }}
 	{{ end }}
-	set $target {{ trim $container_pass }};
+	set $target {{ trim $container_name }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
@@ -368,7 +412,7 @@ server {
 			}
 		{{ end }}
 	{{ end }}
-	set $target {{ trim $container_pass }};
+	set $target {{ trim $container_name }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
@@ -417,3 +461,5 @@ server {
 {{ end }}
 {{ end }}
 
+}
+daemon off;

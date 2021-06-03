@@ -140,15 +140,15 @@ RUN groupadd nginx && useradd -g nginx nginx && usermod -s /bin/false nginx && \
 
 #USER nginx
 # Configure Nginx and apply fix for very long server names
-RUN echo "daemon off;" >> /etc/nginx/nginx.conf \
- && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
+#RUN echo "daemon off;" >> /etc/nginx/nginx.conf \
+# && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
 
 
 COPY network_internal.conf /etc/nginx/
 
 COPY . /app/
 WORKDIR /app/
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.placeholder.conf /etc/nginx/nginx.conf
 COPY /njs/ /njs/
 
 
