@@ -1,7 +1,7 @@
 version: '2.4'
 services:
   nginx-proxy:
-    image: jwilder/nginx-proxy
+    image: hasnat/nginx-proxy
     build: .
     container_name: nginx-proxy
     ports:

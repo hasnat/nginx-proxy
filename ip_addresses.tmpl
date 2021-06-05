@@ -1,16 +1,20 @@
+{{ $debug := true }}
 {{ $CurrentContainer := where $ "ID" .Docker.CurrentContainerID | first }}
 {{ define "upstream" }}
 	{{ if .Address }}
 		{{/* If we got the containers from swarm and this container's port is published to host, use host IP:PORT */}}
 		{{ if and .Container.Node.ID .Address.HostPort }}
+	# .Container.Node.Name / .Container.Name
 	# {{ .Container.Node.Name }}/{{ .Container.Name }}
 			server {{ .Container.Node.Address.IP }}:{{ .Address.HostPort }};
 		{{/* If there is no swarm node or the port is not published on host, use container's IP:PORT */}}
 		{{ else if .Network }}
+	# .Container.Name
 	# {{ .Container.Name }}
 	server {{ .Network.IP }}:{{ .Address.Port }};
 		{{ end }}
 	{{ else if .Network }}
+	# .Container.Name
 	# {{ .Container.Name }}
 		{{ if .Network.IP }}
 	server {{ .Network.IP }}:{{ .VirtualPort }};
@@ -23,7 +27,7 @@
 {{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
 
 {{ range $container := $containers }}
-	{{ $debug := true }}
+    # -------- {{ $container.Name }} --------
 	{{/* If only 1 port exposed, use that as a default, else 80 */}}
 	{{ $defaultPort := (when (eq (len $container.Addresses) 1) (first $container.Addresses) (dict "Port" "80")).Port }}
 	{{ range $knownNetwork := $CurrentContainer.Networks }}
@@ -49,5 +53,6 @@
 	{{/* nginx-proxy/nginx-proxy#1105 */}}
 	# Fallback entry
 	server 127.0.0.1 down;
+
 {{ end }}
 {{ end }}
