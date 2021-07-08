@@ -1,7 +1,7 @@
 version: '2.4'
 services:
   nginx-proxy:
-    image: hasnat/nginx-proxy
+    image: hasnat/nginx-proxy:rc.combined.m1
     build: .
     container_name: nginx-proxy
     ports:
@@ -33,7 +33,7 @@ services:
     container_name: whoami-ssl
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami-ssl.local.a4g.com
+      - VIRTUAL_HOST=whoami-ssl.local.example.com
       - VIRTUAL_PORT=8000
       - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
 
