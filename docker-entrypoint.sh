@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 mkdir -p /tmp/nginx_cache
 
@@ -32,4 +32,5 @@ if [ "$socketMissing" = 1 -a "$1" = forego -a "$2" = start -a "$3" = '-r' ]; the
 	exit 1
 fi
 
+docker-gen -endpoint=unix:///tmp/docker.sock /app/nginx.tmpl /etc/nginx/nginx.conf
 exec "$@"

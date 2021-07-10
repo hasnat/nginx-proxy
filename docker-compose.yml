@@ -9,7 +9,7 @@ services:
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      - "${A4G_SSL_CERTS_LOCATION}:/etc/nginx/certs"
+      - "${EX_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
 
   whoami:
     container_name: whoami
