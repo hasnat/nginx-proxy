@@ -195,6 +195,17 @@ server {
 }
 {{ end }}
 
+{{ $last_upstream_container_name := trim "" }}
+{{ range $containers := groupBy $ "Env.VIRTUAL_HOST" }}
+
+{{ $container_name := (first (groupByKeys $containers "Name")) }}
+{{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
+
+
+upstream {{ trim $container_name }} {
+    server {{ trim $container_pass }};
+}
+{{ end }}
 {{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
 
 {{ $host := trim $host }}
@@ -207,7 +218,7 @@ server {
 {{/* Get the VIRTUAL_PROTO defined by containers w/ the same vhost, falling back to "http" */}}
 {{ $proto := trim (or (first (groupByKeys $containers "Env.VIRTUAL_PROTO")) "http") }}
 
-{{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }} # deprecated
+{{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }}
 {{ $vhost_server_conf := trim (or (first (groupByKeys $containers "Env.VHOST_SERVER_CONF")) "") }}
 {{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
 {{ $vhost_vts_conf := trim (or (first (groupByKeys $containers "Env.VHOST_VTS_CONF")) "") }}
@@ -219,9 +230,7 @@ server {
 
 {{ $container_name := (first (groupByKeys $containers "Name")) }}
 {{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
-upstream {{ trim $container_name }} {
-    server {{ trim $container_pass }};
-}
+
 {{/* Get the NETWORK_ACCESS defined by containers w/ the same vhost, falling back to "external" */}}
 {{ $network_tag := or (first (groupByKeys $containers "Env.NETWORK_ACCESS")) "external" }}
 
