@@ -196,16 +196,24 @@ server {
 {{ end }}
 
 {{ $last_upstream_container_name := trim "" }}
+
+# list all upstreams here
 {{ range $containers := groupBy $ "Env.VIRTUAL_HOST" }}
+    {{ $container_name := (first (groupByKeys $containers "Name")) }}
+    {{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
 
-{{ $container_name := (first (groupByKeys $containers "Name")) }}
-{{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
+    {{ if not ( eq $last_upstream_container_name $container_name ) }}
+        upstream {{ trim $container_name }} {
+            server {{ trim $container_pass }};
+        }
+    {{ else }}
+        # not reprinting last_upstream_container_name {{$last_upstream_container_name}} container_name {{$container_name}}
+    {{ end }}
 
-
-upstream {{ trim $container_name }} {
-    server {{ trim $container_pass }};
-}
+    {{ $last_upstream_container_name := $container_name }}
 {{ end }}
+
+# loop all servers
 {{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
 
 {{ $host := trim $host }}

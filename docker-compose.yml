@@ -52,5 +52,5 @@ services:
     container_name: whoami-multi
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=www2.127.0.0.1.nip.io,www3.127.0.0.1.nip.io
+      - VIRTUAL_HOST=multi-host-1.127.0.0.1.nip.io,multi-host-2.127.0.0.1.nip.io
       - VIRTUAL_PORT=8000
