@@ -1,9 +1,46 @@
+# setup build arguments for version of dependencies to use
+ARG DOCKER_GEN_VERSION=0.7.6
+ARG FOREGO_VERSION=v0.17.0
+
+# Use a specific version of golang to build both binaries
+FROM golang:1.16.5 as gobuilder
+
+# Build docker-gen from scratch
+FROM gobuilder as dockergen
+
+ARG DOCKER_GEN_VERSION
+
+RUN git clone https://github.com/jwilder/docker-gen \
+   && cd /go/docker-gen \
+   && git -c advice.detachedHead=false checkout $DOCKER_GEN_VERSION \
+   && go mod download \
+   && CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.buildVersion=${DOCKER_GEN_VERSION}" ./cmd/docker-gen \
+   && go clean -cache \
+   && mv docker-gen /usr/local/bin/ \
+   && cd - \
+   && rm -rf /go/docker-gen
+
+# Build forego from scratch
+FROM gobuilder as forego
+
+ARG FOREGO_VERSION
+
+RUN git clone https://github.com/nginx-proxy/forego/ \
+   && cd /go/forego \
+   && git -c advice.detachedHead=false checkout $FOREGO_VERSION \
+   && go mod download \
+   && CGO_ENABLED=0 GOOS=linux go build -o forego . \
+   && go clean -cache \
+   && mv forego /usr/local/bin/ \
+   && cd - \
+   && rm -rf /go/forego
+
 FROM debian:buster as nginx-builder
 
-ENV NGINX_VERSION=1.18.0 \
+ENV NGINX_VERSION=1.20.0 \
     NGINX_MODULE_VTS_VERSION=0.1.18 \
     HEADERS_MORE_NGINX_MODULE_VERSION=0.33 \
-    JA3_NGINX_MODULE_VERSION=03.2021.1 \
+    JA3_NGINX_MODULE_VERSION=07.2021.03 \
     NGX_DEVEL_KIT_VERSION=0.3.1 \
     NJS_NGINX_MODULE_VERSION=0.5.2
 
@@ -35,10 +72,11 @@ RUN cd /nginx-modules && \
     git clone --depth 1 https://github.com/openssl/openssl -b OpenSSL_1_1_1e && \
     cd openssl && \
     patch -p1 < /nginx-modules/nginx-module-ja3/patches/openssl_1.1.1e.extensions.patch && \
-    cd /nginx && patch -p1 < /nginx-modules/nginx-module-ja3/patches/nginx.latest.patch && \
-    cd /nginx-modules/nginx-module-ja3/openssl && ./config -d && make && make install
+    cd /nginx && patch -p1 < /nginx-modules/nginx-module-ja3/patches/nginx.1.20.0.ssl.extensions.patch
 
 
+#    cd /nginx-modules/nginx-module-ja3/openssl
+#    && ./config -d && make && make install
 
 
 RUN cd /nginx-modules && \
@@ -88,6 +126,7 @@ RUN cd nginx && \
     --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -O -fno-omit-frame-pointer' \
     --with-ld-opt='-Wl,-z,relro -Wl,--as-needed -L/usr/local/lib -Wl,-E ' \
     --with-ipv6 \
+    --with-openssl=/nginx-modules/nginx-module-ja3/openssl  \
     --add-dynamic-module=/nginx-modules/nginx-module-ja3  \
     --add-dynamic-module=/nginx-modules/headers-more-nginx-module \
     --add-dynamic-module=/nginx-modules/nginx-module-vts \
@@ -96,20 +135,7 @@ RUN cd nginx && \
 
 RUN    rm -rf /nginx*
 
-#RUN tail -f /dev/null
-# Install Forego
-ADD https://github.com/jwilder/forego/releases/download/v0.16.1/forego /usr/local/bin/forego
-RUN chmod +x /usr/local/bin/forego
 
-ENV DOCKER_GEN_VERSION 0.7.4
-
-ADD https://github.com/jwilder/docker-gen/releases/download/$DOCKER_GEN_VERSION/docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz
-RUN tar -C /usr/local/bin -xvzf docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz \
- && rm /docker-gen-linux-amd64-$DOCKER_GEN_VERSION.tar.gz
-
-#RUN tail -f /dev/null
-#RUN nginx -V
-#RUN exit 1
 FROM debian:buster
 
 
@@ -122,12 +148,17 @@ RUN apt-get update \
 ENV LD_LIBRARY_PATH=/usr/local/lib
 COPY --from=nginx-builder /etc/nginx/ /etc/nginx/
 
-COPY --from=nginx-builder /usr/sbin/nginx \
-    /usr/local/bin/openssl \
-    /usr/local/bin/c_rehash \
-    /usr/local/bin/forego \
-    /usr/local/bin/docker-gen \
-    /usr/sbin/
+COPY --from=nginx-builder /usr/sbin/nginx /usr/sbin/
+
+# Install Forego + docker-gen
+
+COPY --from=forego /usr/local/bin/forego /usr/local/bin/forego
+COPY --from=dockergen /usr/local/bin/docker-gen /usr/local/bin/docker-gen
+
+# Add DOCKER_GEN_VERSION environment variable
+# Because some external projects rely on it
+ARG DOCKER_GEN_VERSION
+ENV DOCKER_GEN_VERSION=${DOCKER_GEN_VERSION}
 
 #USER root
 #RUN cat /etc/passwd

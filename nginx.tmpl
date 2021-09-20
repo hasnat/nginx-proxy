@@ -195,6 +195,7 @@ server {
 }
 {{ end }}
 
+# loop all servers
 {{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
 
 {{ $host := trim $host }}
@@ -207,7 +208,7 @@ server {
 {{/* Get the VIRTUAL_PROTO defined by containers w/ the same vhost, falling back to "http" */}}
 {{ $proto := trim (or (first (groupByKeys $containers "Env.VIRTUAL_PROTO")) "http") }}
 
-{{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }} # deprecated
+{{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }}
 {{ $vhost_server_conf := trim (or (first (groupByKeys $containers "Env.VHOST_SERVER_CONF")) "") }}
 {{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
 {{ $vhost_vts_conf := trim (or (first (groupByKeys $containers "Env.VHOST_VTS_CONF")) "") }}
@@ -219,9 +220,7 @@ server {
 
 {{ $container_name := (first (groupByKeys $containers "Name")) }}
 {{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
-upstream {{ trim $container_name }} {
-    server {{ trim $container_pass }};
-}
+
 {{/* Get the NETWORK_ACCESS defined by containers w/ the same vhost, falling back to "external" */}}
 {{ $network_tag := or (first (groupByKeys $containers "Env.NETWORK_ACCESS")) "external" }}
 
@@ -253,6 +252,7 @@ upstream {{ trim $container_name }} {
 
 {{/* Use the cert specified on the container or fallback to the best vhost match */}}
 {{ $cert := (coalesce $certName $vhostCert) }}
+{{ $cert := when (eq $cert "") $vhostCert $cert }}
 
 {{ $is_https := (and (ne $https_method "nohttps") (ne $cert "") (exists (printf "/etc/nginx/certs/%s.crt" $cert)) (exists (printf "/etc/nginx/certs/%s.key" $cert))) }}
 
@@ -345,7 +345,7 @@ server {
 			}
 		{{ end }}
 	{{ end }}
-	set $target {{ trim $container_name }};
+	set $target {{ trim $container_pass }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
@@ -412,7 +412,7 @@ server {
 			}
 		{{ end }}
 	{{ end }}
-	set $target {{ trim $container_name }};
+	set $target {{ trim $container_pass }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};

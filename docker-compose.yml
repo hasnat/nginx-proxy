@@ -1,7 +1,7 @@
 version: '2.4'
 services:
   nginx-proxy:
-    image: hasnat/nginx-proxy
+    image: hasnat/nginx-proxy:rc.combined.m1
     build: .
     container_name: nginx-proxy
     ports:
@@ -9,7 +9,7 @@ services:
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      - "${A4G_SSL_CERTS_LOCATION}:/etc/nginx/certs"
+      - "${EX_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
 
   whoami:
     container_name: whoami
@@ -33,7 +33,7 @@ services:
     container_name: whoami-ssl
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=whoami-ssl.local.a4g.com
+      - VIRTUAL_HOST=whoami-ssl.local.example.com
       - VIRTUAL_PORT=8000
       - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
 
@@ -46,3 +46,11 @@ services:
       - VIRTUAL_PORT=8000
       - VHOST_HTPASSWD_PLAIN=admin:admin;test:test
       - "VHOST_HTPASSWD=admin1:$$apr1$$C4yah1XV$$YSZ5x5xEEbieYbYfpnQRv/;test1:$$apr1$$yP1tWxNz$$SyhZnvAzH2RbxjBaHKDP5."
+
+
+  whoami-multi:
+    container_name: whoami-multi
+    image: jwilder/whoami
+    environment:
+      - VIRTUAL_HOST=multi-host-1.127.0.0.1.nip.io,multi-host-2.127.0.0.1.nip.io
+      - VIRTUAL_PORT=8000
