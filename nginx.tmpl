@@ -195,6 +195,27 @@ server {
 }
 {{ end }}
 
+{{ $last_upstream_container_name := trim "" }}
+
+# list all upstreams here
+{{ range $containers := groupBy $ "Env.VIRTUAL_HOST" }}
+    {{ $container_name := (first (groupByKeys $containers "Name")) }}
+    {{ $container_pass := (printf "%v:%v" ($container_name)  (trim (or (first (groupByKeys $containers "Env.VIRTUAL_PORT")) "80"))) }}
+
+    {{ if not ( eq $last_upstream_container_name $container_name ) }}
+        upstream {{ trim $container_name }} {
+            server {{ trim $container_pass }};
+
+            # to avoid killing nginx when an upstream has no alive server (or on misbehaving/restarting)
+            server 127.0.0.1:{{ $external_http_port }}   backup;
+        }
+    {{ else }}
+        # not reprinting last_upstream_container_name {{$last_upstream_container_name}} container_name {{$container_name}}
+    {{ end }}
+
+    {{ $last_upstream_container_name := $container_name }}
+{{ end }}
+
 # loop all servers
 {{ range $host, $containers := groupByMulti $ "Env.VIRTUAL_HOST" "," }}
 
@@ -345,7 +366,7 @@ server {
 			}
 		{{ end }}
 	{{ end }}
-	set $target {{ trim $container_pass }};
+	set $target {{ trim $container_name }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
@@ -412,7 +433,7 @@ server {
 			}
 		{{ end }}
 	{{ end }}
-	set $target {{ trim $container_pass }};
+	set $target {{ trim $container_name }};
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
