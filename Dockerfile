@@ -42,7 +42,8 @@ ENV NGINX_VERSION=1.20.0 \
     HEADERS_MORE_NGINX_MODULE_VERSION=0.33 \
     JA3_NGINX_MODULE_VERSION=07.2021.03 \
     NGX_DEVEL_KIT_VERSION=0.3.1 \
-    NJS_NGINX_MODULE_VERSION=0.5.2
+    NJS_NGINX_MODULE_VERSION=0.5.2 \
+    NGX_UPSTREAM_JDOMAIN_VERSION=1.1.6
 
 RUN apt-get -y update && apt-get install -y gnupg wget unzip ca-certificates curl openssl git
 RUN echo "deb http://nginx.org/packages/debian/ buster nginx" >> /etc/apt/sources.list.d/nginx.list && \
@@ -97,6 +98,11 @@ RUN cd /nginx-modules && \
     mv headers-more-nginx-module-${HEADERS_MORE_NGINX_MODULE_VERSION} headers-more-nginx-module && \
     rm headers-more-nginx-module-${HEADERS_MORE_NGINX_MODULE_VERSION}.zip
 
+RUN cd /nginx-modules && \
+    wget -O ngx-upstream-jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION}.zip https://github.com/nicholaschiasson/ngx_upstream_jdomain/archive/refs/tags/${NGX_UPSTREAM_JDOMAIN_VERSION}.zip && \
+    unzip ngx-upstream-jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION}.zip  && \
+    mv ngx_upstream_jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION} ngx-upstream-jdomain && \
+    rm ngx-upstream-jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION}.zip
 
 
 RUN cd nginx && \
@@ -130,6 +136,7 @@ RUN cd nginx && \
     --add-dynamic-module=/nginx-modules/nginx-module-ja3  \
     --add-dynamic-module=/nginx-modules/headers-more-nginx-module \
     --add-dynamic-module=/nginx-modules/nginx-module-vts \
+    --add-dynamic-module=/nginx-modules/ngx-upstream-jdomain \
     --add-dynamic-module=/nginx-modules/nginx-module-njs/nginx && \
     make && make install
 
