@@ -129,10 +129,11 @@ RUN cd nginx && \
     --with-http_gzip_static_module \
     --with-http_stub_status_module \
     --with-file-aio \
-    --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -O -fno-omit-frame-pointer' \
+    --with-cc-opt='-g -O2 -fstack-protector --param=ssp-buffer-size=4 -Wformat  -Wno-error=deprecated-declarations -Werror=format-security -Wp,-D_FORTIFY_SOURCE=2 -O -fno-omit-frame-pointer' \
     --with-ld-opt='-Wl,-z,relro -Wl,--as-needed -L/usr/local/lib -Wl,-E ' \
     --with-ipv6 \
     --with-openssl=/nginx-modules/nginx-module-ja3/openssl  \
+    --with-openssl-opt=enable-ktls \
     --add-dynamic-module=/nginx-modules/nginx-module-ja3  \
     --add-dynamic-module=/nginx-modules/headers-more-nginx-module \
     --add-dynamic-module=/nginx-modules/nginx-module-vts \
