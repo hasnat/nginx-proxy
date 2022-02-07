@@ -40,7 +40,7 @@ FROM debian:buster as nginx-builder
 ENV NGINX_VERSION=1.20.0 \
     NGINX_MODULE_VTS_VERSION=0.1.18 \
     HEADERS_MORE_NGINX_MODULE_VERSION=0.33 \
-    JA3_NGINX_MODULE_VERSION=07.2021.03 \
+    JA3_NGINX_MODULE_VERSION=openssl3_support \
     NGX_DEVEL_KIT_VERSION=0.3.1 \
     NJS_NGINX_MODULE_VERSION=0.5.2 \
     NGX_UPSTREAM_JDOMAIN_VERSION=1.1.6
@@ -63,21 +63,21 @@ RUN wget -O nginx-${NGINX_VERSION}.tar.gz http://nginx.org/download/nginx-${NGIN
 RUN mkdir -p /nginx-modules
 
 RUN cd /nginx-modules && \
-    wget -O nginx-module-ja3-${JA3_NGINX_MODULE_VERSION}.zip https://github.com/hasnat/nginx-ssl-ja3/archive/refs/tags/${JA3_NGINX_MODULE_VERSION}.zip && \
+    wget -O nginx-module-ja3-${JA3_NGINX_MODULE_VERSION}.zip https://github.com/dcarlier-deviceatlas/nginx-ssl-ja3/archive/refs/heads/${JA3_NGINX_MODULE_VERSION}.zip && \
     unzip nginx-module-ja3-${JA3_NGINX_MODULE_VERSION}.zip  && \
     mv nginx-ssl-ja3-${JA3_NGINX_MODULE_VERSION} nginx-module-ja3 && \
     rm nginx-module-ja3-${JA3_NGINX_MODULE_VERSION}.zip && \
     cd nginx-module-ja3 && \
 #    ls -lah /nginx-modules/nginx-module-ja3/patches/ && exit 1 && \
     git clone --depth 1 https://github.com/nginx/nginx-tests -b master && \
-    git clone --depth 1 https://github.com/openssl/openssl -b OpenSSL_1_1_1e && \
-    cd openssl && \
-    patch -p1 < /nginx-modules/nginx-module-ja3/patches/openssl_1.1.1e.extensions.patch && \
+    git clone https://github.com/openssl/openssl && \
+    cd openssl && git checkout 89cd17a && \
+    patch -p1 < /nginx-modules/nginx-module-ja3/patches/openssl_3.0.0.extensions.patch && \
     cd /nginx && patch -p1 < /nginx-modules/nginx-module-ja3/patches/nginx.1.20.0.ssl.extensions.patch
 
 
-#    cd /nginx-modules/nginx-module-ja3/openssl
-#    && ./config -d && make && make install
+#RUN cd /nginx-modules/nginx-module-ja3/openssl \
+#    && ./config enable-ktls --libdir=/usr/local/lib -d && make && make install
 
 
 RUN cd /nginx-modules && \
