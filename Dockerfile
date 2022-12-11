@@ -38,12 +38,12 @@ RUN git clone https://github.com/nginx-proxy/forego/ \
 FROM debian:bullseye as nginx-builder
 
 ENV NGINX_VERSION=1.23.2 \
-    NGINX_MODULE_VTS_VERSION=0.1.18 \
-    HEADERS_MORE_NGINX_MODULE_VERSION=0.33 \
+    NGINX_MODULE_VTS_VERSION=0.2.1 \
+    HEADERS_MORE_NGINX_MODULE_VERSION=0.34 \
     JA3_NGINX_MODULE_VERSION=07.2021.03 \
     NGX_DEVEL_KIT_VERSION=0.3.1 \
-    NJS_NGINX_MODULE_VERSION=0.5.2 \
-    NGX_UPSTREAM_JDOMAIN_VERSION=1.1.6
+    NJS_NGINX_MODULE_VERSION=0.7.9 \
+    NGX_UPSTREAM_JDOMAIN_VERSION=1.4.0
 
 RUN apt-get -y update && apt-get install -y gnupg wget unzip ca-certificates curl openssl git
 RUN echo "deb http://nginx.org/packages/debian/ bullseye nginx" >> /etc/apt/sources.list.d/nginx.list && \
@@ -52,7 +52,7 @@ RUN echo "deb http://nginx.org/packages/debian/ bullseye nginx" >> /etc/apt/sour
 
 RUN apt-get -y update && apt-get -y build-dep nginx
 
-RUN apt-get install -y build-essential
+RUN apt-get install -y build-essential libpcre3-dev
 
 
 RUN wget -O nginx-${NGINX_VERSION}.tar.gz http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \

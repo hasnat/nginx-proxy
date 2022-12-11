@@ -18,7 +18,7 @@ events {
 
 
 http {
-    js_include /njs/logger/logger.js;
+    js_import /njs/logger/logger.js;
 
 
     include       /etc/nginx/mime.types;
@@ -128,8 +128,8 @@ map $scheme $proxy_x_forwarded_ssl {
 
 gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
 
-js_set $headers_log headers_log;
-js_set $headers_and_body_log headers_and_body_log;
+js_set $headers_log logger.headers_log;
+js_set $headers_and_body_log logger.headers_and_body_log;
 log_format headers_log escape=none '$headers_log';
 log_format headers_and_body_log escape=none '$headers_and_body_log';
 

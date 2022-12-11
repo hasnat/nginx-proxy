@@ -29,5 +29,7 @@ function headers_log(r) {
 function headers_and_body_log(r) {
     var log = prepare_log(r);
     log['body'] = r.requestBody;
+    console.log(JSON.stringify(log));
     return JSON.stringify(log)
 }
+export default {headers_log, headers_and_body_log}
