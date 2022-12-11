@@ -35,7 +35,7 @@ RUN git clone https://github.com/nginx-proxy/forego/ \
    && cd - \
    && rm -rf /go/forego
 
-FROM debian:bookworm as nginx-builder
+FROM debian:bullseye as nginx-builder
 
 ENV NGINX_VERSION=1.23.2 \
     NGINX_MODULE_VTS_VERSION=0.1.18 \
@@ -46,8 +46,8 @@ ENV NGINX_VERSION=1.23.2 \
     NGX_UPSTREAM_JDOMAIN_VERSION=1.1.6
 
 RUN apt-get -y update && apt-get install -y gnupg wget unzip ca-certificates curl openssl git
-RUN echo "deb http://nginx.org/packages/debian/ bookworm nginx" >> /etc/apt/sources.list.d/nginx.list && \
-    echo "deb-src http://nginx.org/packages/debian/ bookworm nginx" >> /etc/apt/sources.list.d/nginx.list  && \
+RUN echo "deb http://nginx.org/packages/debian/ bullseye nginx" >> /etc/apt/sources.list.d/nginx.list && \
+    echo "deb-src http://nginx.org/packages/debian/ bullseye nginx" >> /etc/apt/sources.list.d/nginx.list  && \
     apt-key adv --fetch-keys "http://nginx.org/keys/nginx_signing.key"
 
 RUN apt-get -y update && apt-get -y build-dep nginx
@@ -143,7 +143,7 @@ RUN cd nginx && \
 RUN    rm -rf /nginx*
 
 
-FROM debian:bookworm
+FROM debian:bullseye
 
 
 RUN apt-get update \
