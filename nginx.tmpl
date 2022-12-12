@@ -168,6 +168,10 @@ proxy_set_header Proxy "";
 
 {{ $access_log := (or (and (not $.Env.DISABLE_ACCESS_LOGS) "access_log /dev/stdout vhost;") "") }}
 
+server {
+    listen 127.0.0.1:5555;
+    return 503;
+}
 {{ $enable_ipv6 := eq (or ($.Env.ENABLE_IPV6) "") "true" }}
 server {
 	server_name _; # This is just an invalid value which will never trigger on a real hostname.
@@ -205,7 +209,7 @@ server {
 
     {{ if not ( eq $last_upstream_container_name $container_name ) }}
         upstream {{ trim $container_name }} {
-            server 127.0.0.1:{{ $external_http_port }}   backup;
+            server 127.0.0.1:5555   backup;
             # jdomain module is used to cater for DNS changes + not die  if a container or two are missing on boot
             jdomain {{ trim $container_name }} port={{ $container_port }};
         }
