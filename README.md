@@ -478,6 +478,16 @@ You can also have `VHOST_LOCATION_CONF` environment variable in your container.
 
 Before submitting pull requests or issues, please check github to make sure an existing issue or pull request is not already open.
 
+#### Running Locally via Docker Compose
+To run locally via docker-compose, adjust your arch+distro, e.g. for m1
+```
+OS_ARCH=linux/aarch64 \
+OS_BASE=.alpine.boring.njs \
+docker-compose up --build -d --force-recreate nginx-proxy && docker logs -f nginx-proxy
+
+```
+
+
 #### Running Tests Locally
 
 To run tests, you need to prepare the docker image to test which must be tagged `jwilder/nginx-proxy:test`:

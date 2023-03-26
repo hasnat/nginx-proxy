@@ -1,5 +1,5 @@
-#!/bin/bash -e
-
+#!/usr/bin/env sh
+set -e
 # The first argument is the bit depth of the dhparam, or 4096 if unspecified
 DHPARAM_BITS=${1:-4096}
 GENERATE_DHPARAM=${2:-true}
@@ -39,7 +39,8 @@ EOT
 # Put the default dhparam file in place so we can start immediately
 cp $PREGEN_DHPARAM_FILE $DHPARAM_FILE
 touch $GEN_LOCKFILE
-
+# TODO fix me I don't have openssl, build dhparam with boringssl
+exit 0
 # Generate a new dhparam in the background in a low priority and reload nginx when finished (grep removes the progress indicator).
 (
     (
@@ -49,4 +50,4 @@ touch $GEN_LOCKFILE
         && nginx -s reload
     ) | grep -vE '^[\.+]+'
     rm $GEN_LOCKFILE
-) &disown
+) &

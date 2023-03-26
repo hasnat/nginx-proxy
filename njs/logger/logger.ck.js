@@ -51,43 +51,17 @@ function prepare_log(r) {
         bytes_sent: r.variables.bytes_sent,
         body_bytes_sent: r.variables.body_bytes_sent,
         upstream_addr: r.variables.upstream_addr,
-        upstream_http_name: r.variables.upstream_http_name,
-        upstream_trailer_name: r.variables.upstream_trailer_name,
         upstream_status: r.variables.upstream_status,
-        upstream_queue_time: r.variables.upstream_queue_time,
         upstream_response_time: r.variables.upstream_response_time,
-        upstream_response_length: r.variables.upstream_response_length,
         upstream_connect_time: r.variables.upstream_connect_time,
         upstream_header_time: r.variables.upstream_header_time,
-        upstream_cache_status: r.variables.upstream_cache_status,
-        upstream_bytes_sent: r.variables.upstream_bytes_sent,
-        upstream_bytes_received: r.variables.upstream_bytes_received,
         remote_addr: r.variables.remote_addr,
         remote_user: r.variables.remote_user
     };
 }
-function headers_log_with_callback(r) {
-    // return 'okok';
-    var callback = ''
-    try {
-
-         callback = /([a-zA-Z0-9_-]{1,})/.exec(r.variables.arg_callback)[0]
-
-
-    }catch(e){
-        r.log('eee')
-        // r.log('erroooor-s '+ JSON.stringify(e))
-        // r.log('errooe3')
-    }
-
-    if (callback != '') {
-        r.return(200,callback+'('+headers_log(r)+')')
-        // return ;
-    } else {
-        r.return(200,headers_log(r) + '\n // you can pass callback as /..script.js?callback=myCallback');
-    }
-}
 function headers_log(r) {
+    r.error('headers_log')
+    r.error(prepare_log(r));
     return JSON.stringify(prepare_log(r));
 }
 function base64ToBinary(base64) {
@@ -246,4 +220,4 @@ function headers_and_body_log(r) {
     r.error(JSON.stringify(log));
     return JSON.stringify(log)
 }
-export default {headers_log, headers_log_with_callback, headers_and_body_log, cloudkit_headers_log, cloudkit_headers_js_content}
+export default {headers_log, headers_and_body_log, cloudkit_headers_log, cloudkit_headers_js_content}

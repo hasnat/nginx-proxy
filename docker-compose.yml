@@ -2,47 +2,170 @@ version: '2.4'
 services:
   nginx-proxy:
     image: hasnat/nginx-proxy:rc.combined.m1.2
-    build: .
+    build:
+      context: .
+      # OS_BASE e.g. `OS_BASE=.debian docker-compose up ....`
+      # options .debian, .alpine
+      # default .alpine
+      dockerfile: ./Dockerfile${OS_BASE:-}
+    platform: ${OS_ARCH:-linux/aarch64}
+    #platform: linux/amd64,linux/arm64/v8
     container_name: nginx-proxy
+    environment:
+      DHPARAM_GENERATION: "false"
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
-      - "${EX_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
+      - "${DA_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
+
+  caddy-proxy:
+    image: caddy
+#    platform: linux/amd64
+    container_name: caddy-proxy
+    environment:
+      DHPARAM_GENERATION: "false"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./Caddyfile:/etc/caddy/Caddyfile"
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "${DA_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
+
+  caddy-ui:
+    image: qmcgaw/caddy-ui
+    ports:
+      - 8000:8000/tcp
+    environment:
+      - CADDY_API_ENDPOINT=http://caddy-proxy:2019
+  nginx-proxy-3:
+    image: macbre/nginx-http3:latest
+    container_name: nginx-proxy-3
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./nginx.quic.conf:/etc/nginx/nginx.conf"
+      - "${DA_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
 
   whoami:
     container_name: whoami
     image: jwilder/whoami
     environment:
-      - "VIRTUAL_HOST=whoami.127.0.0.1.nip.io"
+      - "VIRTUAL_HOST=whoami.local.vexstud.io"
       - "VIRTUAL_PORT=8000"
-      - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
+      - "VHOST_ACCESS_LOG=access_log /dev/stdout cloudkit_headers_log;"
+
+
 
   whoami-vts:
     container_name: whoami-vts
     image: jwilder/whoami
+    platform: linux/amd64
     environment:
-      - "VIRTUAL_HOST=whoami-vts.127.0.0.1.nip.io"
+      - "VIRTUAL_HOST=whoami-vts.local.vexstud.io"
       - "VIRTUAL_PORT=8000"
       - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
       - "VHOST_VTS_ENABLE=true"
       - "VHOST_VTS_CONF=location /status/format/prometheus { vhost_traffic_status_display; vhost_traffic_status_display_format prometheus; }"
 
-  whoami-ssl:
-    container_name: whoami-ssl
-    image: jwilder/whoami
+
+  headers-dump-1:
+    container_name: headers-dump-1
+    image: hasnat/request-headers-dump
+    restart: always
+    platform: linux/amd64
     environment:
-      - VIRTUAL_HOST=whoami-ssl.local.example.com
-      - VIRTUAL_PORT=8000
+      - VIRTUAL_HOST=headers-dump-1.local.vexstud.io
+      - VIRTUAL_PORT=8080
+      - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
+      - "VHOST_LOCATION_CONF= \
+      location /home { \
+        add_header Content-Type 'text/html'; \
+        echo_before_body '\
+        <a href=\"/?123\">sample-navigation-anchor</a> | \
+        <a href=\"https://headers-dump-2.local.vexstud.io/home\">headers-dump-2</a>\
+        <br/><pre id=a style=\"width:45%; overflow:scroll;float: left\">'; \
+        proxy_pass http://$$target; \
+        echo_after_body '</pre>\
+        <pre id=b style=\"width:45%; overflow:scroll;float: right\"></pre> \
+        <script>function js_headers(ret){document.getElementById(\"b\").innerHTML = \"JS LOADED> \"+JSON.stringify(ret,\" \", 2); } </script> \
+        <script src=\"/asset.js?callback=js_headers\"></script>'; \
+      } \
+      location /asset.js { \
+        add_header Content-Type 'text/javascript'; \
+        js_content logger.headers_log_with_callback; \
+      }"
+
+
+
+  headers-dump-2:
+    container_name: headers-dump-2
+    image: hasnat/request-headers-dump
+    restart: always
+    platform: linux/amd64
+    environment:
+      - VIRTUAL_HOST=headers-dump-2.local.vexstud.io
+      - VIRTUAL_PORT=8080
+      - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
+      - "VHOST_LOCATION_CONF= \
+      location /home { \
+        add_header Content-Type 'text/html'; \
+        echo_before_body '\
+        <a href=\"/?123\">sample-navigation-anchor</a> | \
+        <a href=\"https://headers-dump-1.local.vexstud.io/home\">headers-dump-1</a>\
+        <br/><pre id=a style=\"width:45%; overflow:scroll;float: left\">'; \
+        proxy_pass http://$$target; \
+        echo_after_body '</pre>\
+        <pre id=b style=\"width:45%; overflow:scroll;float: right\"></pre> \
+        <script>function js_headers(ret){document.getElementById(\"b\").innerHTML = \"JS LOADED> \"+JSON.stringify(ret,\" \", 2); } </script> \
+        <script src=\"/asset.js?callback=js_headers\"></script>'; \
+      } \
+      location /asset.js { \
+        add_header Content-Type 'text/javascript'; \
+        js_content logger.headers_log_with_callback; \
+      }"
+#
+  static0-ssl:
+    container_name: static0-ssl
+    image: nginx
+    restart: always
+    volumes:
+      - ./statics:/usr/share/nginx/html
+      - ./statics/nginx.conf:/etc/nginx/conf.d/default.conf
+    environment:
+      - VIRTUAL_HOST=z.local.vexstud.io
+      - VIRTUAL_PORT=80
+
+  static2-ssl:
+    container_name: static2-ssl
+    image: hasnat/request-headers-dump
+    platform: linux/amd64
+    restart: always
+    environment:
+      - VIRTUAL_HOST=b1.local.vexstud.io,b4.local.vexstud.io,b3.local.vexstud.io,b2.local.vexstud.io
+      - VIRTUAL_PORT=8080
       - "VHOST_ACCESS_LOG=access_log /dev/stdout headers_log;"
 
+  static3-ssl:
+    container_name: static3-ssl
+    image: nginx
+    restart: always
+    volumes:
+      - ./statics:/usr/share/nginx/html
+      - ./statics/nginx.conf:/etc/nginx/conf.d/default.conf
+    environment:
+      - VIRTUAL_HOST=c.local.vexstud.io
+      - VIRTUAL_PORT=80
 
   whoami-password:
     container_name: whoami-password
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=password.127.0.0.1.nip.io
+      - VIRTUAL_HOST=password.local.vexstud.io
       - VIRTUAL_PORT=8000
       - VHOST_HTPASSWD_PLAIN=admin:admin;test:test
 
@@ -51,5 +174,5 @@ services:
     container_name: whoami-multi
     image: jwilder/whoami
     environment:
-      - VIRTUAL_HOST=multi-host-1.127.0.0.1.nip.io,multi-host-2.127.0.0.1.nip.io
+      - VIRTUAL_HOST=multi-host-1.local.vexstud.io,multi-host-2.local.vexstud.io
       - VIRTUAL_PORT=8000

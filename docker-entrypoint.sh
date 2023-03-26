@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 set -e
 mkdir -p /tmp/nginx_cache
 
@@ -26,7 +26,7 @@ if [ "x$RESOLVERS" = "x" ]; then
     echo "Warning: unable to determine DNS resolvers for nginx" >&2
     unset RESOLVERS
 fi
-
+echo "using resolvers $RESOLVERS"
 # If the user has run the default command and the socket doesn't exist, fail
 if [ "$socketMissing" = 1 -a "$1" = forego -a "$2" = start -a "$3" = '-r' ]; then
 	exit 1

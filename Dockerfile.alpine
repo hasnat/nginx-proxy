@@ -1,35 +1,233 @@
-FROM nginx:1.19.3-alpine
-LABEL maintainer="Jason Wilder mail@jasonwilder.com"
+# Accept the Go version for the image to be set as a build argument.
+# Default to Go 1.16.
+ARG GO_VERSION=1.17
+# Use a specific version of golang to build both binaries
+FROM golang:${GO_VERSION} as gobuilder
 
-# Install wget and install/updates certificates
-RUN apk add --no-cache --virtual .run-deps \
-    ca-certificates bash wget openssl \
-    && update-ca-certificates
+# Build docker-gen from scratch
+FROM gobuilder as dockergen
+
+ARG DOCKER_GEN_VERSION=0.7.6
+
+RUN git clone https://github.com/jwilder/docker-gen \
+   && cd /go/docker-gen \
+   && git -c advice.detachedHead=false checkout $DOCKER_GEN_VERSION \
+   && go mod download \
+   && CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.buildVersion=${DOCKER_GEN_VERSION}" ./cmd/docker-gen \
+   && go clean -cache \
+   && mv docker-gen /usr/local/bin/ \
+   && cd - \
+   && rm -rf /go/docker-gen
+
+# Build forego from scratch
+FROM gobuilder as forego
+
+ARG FOREGO_VERSION=v0.17.0
+
+RUN git clone https://github.com/nginx-proxy/forego/ \
+   && cd /go/forego \
+   && git -c advice.detachedHead=false checkout $FOREGO_VERSION \
+   && go mod download \
+   && CGO_ENABLED=0 GOOS=linux go build -o forego . \
+   && go clean -cache \
+   && mv forego /usr/local/bin/ \
+   && cd - \
+   && rm -rf /go/forego
 
 
-# Configure Nginx and apply fix for very long server names
-RUN echo "daemon off;" >> /etc/nginx/nginx.conf \
- && sed -i 's/worker_processes  1/worker_processes  auto/' /etc/nginx/nginx.conf
 
-# Install Forego
-ADD https://github.com/jwilder/forego/releases/download/v0.16.1/forego /usr/local/bin/forego
-RUN chmod u+x /usr/local/bin/forego
+FROM golang:${GO_VERSION}-alpine3.15 as base
 
-ENV DOCKER_GEN_VERSION 0.7.4
+LABEL maintainer="Hasnat Ullah <hasnat@mac.com>"
 
-RUN wget --quiet https://github.com/jwilder/docker-gen/releases/download/$DOCKER_GEN_VERSION/docker-gen-alpine-linux-amd64-$DOCKER_GEN_VERSION.tar.gz \
- && tar -C /usr/local/bin -xvzf docker-gen-alpine-linux-amd64-$DOCKER_GEN_VERSION.tar.gz \
- && rm /docker-gen-alpine-linux-amd64-$DOCKER_GEN_VERSION.tar.gz
+ENV NGINX_VERSION 1.22.0
+ENV NJS_VERSION 0.7.4
+ENV CFLAGS "-O3"
+ENV CXXFLAGS "-O3"
 
-COPY network_internal.conf /etc/nginx/
+RUN apk add --no-cache gcc libc-dev \
+    autoconf libtool automake \
+    make cmake ninja pcre-dev \
+    linux-headers libxslt-dev gd-dev \
+    geoip-dev perl-dev libedit-dev \
+    git alpine-sdk findutils \
+    libunwind-dev curl tar ccache clang
 
-COPY . /app/
-WORKDIR /app/
-RUN touch /app/htpasswd_generator.sh && chmod +x /app/htpasswd_generator.sh
+FROM base as build
+
+WORKDIR /src
+
+RUN --mount=type=cache,target=/root/.cache/ccache \
+    git clone --depth 1 --branch 2.0.5 https://github.com/zlib-ng/zlib-ng.git && \
+    cd zlib-ng && \
+    cmake -GNinja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+             -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
+             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' \
+             -DZLIB_COMPAT=ON -DZLIB_ENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release . && \
+    cmake --build . && \
+    cmake --build . --target install
+
+# Build BoringSSL.
+RUN --mount=type=cache,target=/root/.cache/ccache \
+    git clone https://boringssl.googlesource.com/boringssl && \
+    cd boringssl && \
+    mkdir build && \
+    cd build && \
+    cmake -GNinja -DCMAKE_C_COMPILER=clang \
+             -DCMAKE_CXX_COMPILER=clang++ \
+             -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
+             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' -DCMAKE_BUILD_TYPE=Release .. && \
+    ninja && \
+    mkdir -p ../.openssl/lib && \
+    cd ../.openssl && \
+    ln -s ../include include && \
+    cp ../build/crypto/libcrypto.a lib/ && \
+    cp ../build/ssl/libssl.a  lib/ && \
+    cd /src
+#RUN ls -lah boringssl/build/tool/bssl && exit 1
+# Download njs module.
+RUN mkdir njs \
+    && curl -SL http://hg.nginx.org/njs/archive/${NJS_VERSION}.tar.gz | tar xz -C njs --strip-components=1
+
+# Download ngx_brotli nginx module for support Brotli compression.
+RUN git clone --recurse-submodules https://github.com/google/ngx_brotli.git
+
+ENV NGX_BROTLI_STATIC_MODULE_ONLY 1
+ENV CFLAGS "-static -static-libgcc -ldl -O3 -pipe  -O -W -Wall -Wpointer-arith -Wno-unused-parameter -fPIE -fstack-protector-all -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security"
+
+# Build static binary nginx with BoringSSL instead OpenSSL
+RUN mkdir nginx \
+    && curl -SL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz | tar xz -C nginx --strip-components=1 \
+    && cd nginx
+ENV NGX_UPSTREAM_JDOMAIN_VERSION=1.4.0
+
+RUN wget -O ngx-upstream-jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION}.zip https://github.com/nicholaschiasson/ngx_upstream_jdomain/archive/refs/tags/${NGX_UPSTREAM_JDOMAIN_VERSION}.zip && \
+    unzip ngx-upstream-jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION}.zip  && \
+    mv ngx_upstream_jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION} ngx-upstream-jdomain && \
+    rm ngx-upstream-jdomain-${NGX_UPSTREAM_JDOMAIN_VERSION}.zip
+ENV NGINX_MODULE_VTS_VERSION=0.2.1
+RUN wget -O nginx-module-vts-${NGINX_MODULE_VTS_VERSION}.zip https://github.com/vozlt/nginx-module-vts/archive/v${NGINX_MODULE_VTS_VERSION}.zip && \
+    unzip nginx-module-vts-${NGINX_MODULE_VTS_VERSION}.zip  && \
+    mv nginx-module-vts-${NGINX_MODULE_VTS_VERSION} nginx-module-vts && \
+    rm nginx-module-vts-${NGINX_MODULE_VTS_VERSION}.zip
+ENV NGX_ECHO_MODULE_VERSION=0.63
+RUN wget -O echo-nginx-module-${NGX_ECHO_MODULE_VERSION}.zip https://github.com/openresty/echo-nginx-module/archive/refs/tags/v${NGX_ECHO_MODULE_VERSION}.zip && \
+    unzip echo-nginx-module-${NGX_ECHO_MODULE_VERSION}.zip  && \
+    mv echo-nginx-module-${NGX_ECHO_MODULE_VERSION} echo-nginx-module && \
+    rm echo-nginx-module-${NGX_ECHO_MODULE_VERSION}.zip
+
+# alps patch
+COPY temp/ngx_http_request.c nginx/src/http/ngx_http_request.c
+COPY temp/ngx_http_core_module.c nginx/src/http/ngx_http_core_module.c
+COPY temp/ngx_http_core_module.h nginx/src/http/ngx_http_core_module.h
+COPY temp/modules/ngx_http_ssl_module.c nginx/src/http/modules/ngx_http_ssl_module.c
+
+
+RUN cd nginx && ./configure --prefix=/usr/share/nginx \
+                   --sbin-path=/usr/bin/nginx \
+                   --conf-path=/etc/nginx/nginx.conf \
+                   --error-log-path=/var/log/nginx/error.log \
+                   --http-log-path=/var/log/nginx/access.log \
+                   --lock-path=/run/lock/subsys/nginx \
+                   --user=1000 \
+                   --group=1000 \
+                   --with-threads \
+                   --with-file-aio \
+                   --with-http_geoip_module \
+                   --with-http_gzip_static_module \
+                   --with-http_ssl_module \
+                   --with-http_v2_module \
+                   --with-http_realip_module \
+                   --with-http_gunzip_module \
+                   --with-http_gzip_static_module \
+                   --with-http_slice_module \
+                   --with-http_stub_status_module \
+                   --with-http_auth_request_module \
+                   --without-select_module \
+                   --without-poll_module \
+#                   --without-http_access_module \
+#                   --without-http_auth_basic_module \
+#                   --without-http_autoindex_module \
+                   --without-http_browser_module \
+                   --without-http_charset_module \
+                   --without-http_empty_gif_module \
+                   --without-http_geo_module \
+                   --without-http_memcached_module \
+#                   --without-http_map_module \
+                   --without-http_ssi_module \
+                   --without-http_split_clients_module \
+                   --without-http_fastcgi_module \
+                   --without-http_uwsgi_module \
+                   --without-http_userid_module \
+                   --without-http_scgi_module \
+                   --without-mail_pop3_module \
+                   --without-mail_imap_module \
+                   --without-mail_smtp_module \
+                   --add-module="/src/njs/nginx" \
+                   --add-module="/src/echo-nginx-module" \
+                   --add-module="/src/ngx_brotli" \
+                   --add-module=/src/ngx-upstream-jdomain \
+                   --add-module=/src/nginx-module-vts \
+                   --with-openssl="/src/boringssl" \
+                   --with-cc-opt="-I /src/boringssl/.openssl/include/" \
+                   --with-ld-opt="-static -Wl,-Bsymbolic-functions -Wl,-z,relro -L /src/boringssl/.openssl/lib/" \
+                   --with-cpu-opt=generic \
+    && touch "/src/boringssl/.openssl/include/openssl/ssl.h" \
+    && make && make install
+
+# NOTE: fix problems with poman: no items matching glob.
+RUN touch /var/log/nginx/error.log \
+    && touch /var/log/nginx/access.log
+
+# Create the user and group files that will be used in the running container to
+# run the process as an unprivileged user.
+RUN mkdir /user \
+    && echo '1000:x:65534:65534:1000:/:' > /user/passwd \
+    && echo '1000:x:65534:' > /user/group
+
+# Final stage: the running container.
+FROM alpine:3.15.7
+RUN apk add --no-cache bash
+
+# # Import the user and group files from the build stage.
+COPY --from=build /user/group /user/passwd /etc/
+# Import the Certificate-Authority certificactes for enabling HTTPS.
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Import related nginx files.
+COPY --from=build /etc/nginx/mime.types /etc/nginx/mime.types
+COPY --from=build /usr/bin/nginx /usr/bin/nginx
+COPY --from=build /bin/sh /bin/sh
+COPY --from=build /usr/share/nginx /usr/share/nginx
+COPY --from=build /var/log/nginx /var/log/nginx
+#COPY nginx.alpine.boring.njs.conf /etc/nginx/nginx.conf
+COPY njs /njs
+
+COPY --from=forego /usr/local/bin/forego /usr/local/bin/forego
+COPY --from=dockergen /usr/local/bin/docker-gen /usr/local/bin/docker-gen
+#COPY nginx.alpine.not.working.conf nginx.tmpl
+
 
 ENV DOCKER_HOST unix:///tmp/docker.sock
+## keeping ipv6 as per https://stackoverflow.com/questions/35744650/docker-network-nginx-resolver
+ENV RESOLVERS="127.0.0.11 ipv6=off valid=30s"
+# maybe this will help us build -- (openssl dhparam -outform PEM -out dhparam.pem 2048)
+#COPY --from=build  /src/boringssl/build/tool/bssl /usr/bin/bssl
+#COPY --from=build  /src/boringssl /src/boringssl
 
 VOLUME ["/etc/nginx/certs", "/etc/nginx/dhparam"]
-
+#RUN mkdir -p /app
+COPY dhparam.pem.default \
+    Procfile \
+    docker-entrypoint.sh \
+    generate-dhparam.sh \
+    htpasswd_generator.tmpl \
+    ip_addresses.tmpl \
+    nginx.tmpl \
+    /app/
+#RUN ls -lah /app && exit 1
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["forego", "start", "-r"]
+
+WORKDIR /app
+#ENTRYPOINT ["/usr/bin/nginx", "-g", "daemon off;"]

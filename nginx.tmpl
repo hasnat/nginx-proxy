@@ -1,11 +1,12 @@
-load_module /etc/nginx/modules/ngx_http_ssl_ja3_module.so;
-load_module /etc/nginx/modules/ngx_stream_ssl_ja3_preread_module.so;
-load_module /etc/nginx/modules/ngx_http_js_module.so;
-load_module /etc/nginx/modules/ngx_http_headers_more_filter_module.so;
-load_module /etc/nginx/modules/ngx_http_vhost_traffic_status_module.so;
-load_module /etc/nginx/modules/ngx_http_upstream_jdomain_module.so;
+#load_module /etc/nginx/modules/ngx_http_ssl_ja3_module.so;
+#load_module /etc/nginx/modules/ngx_stream_ssl_ja3_preread_module.so;
+#load_module /etc/nginx/modules/ngx_http_js_module.so;
+#load_module /etc/nginx/modules/ngx_http_headers_more_filter_module.so;
+#load_module /etc/nginx/modules/ngx_http_vhost_traffic_status_module.so;
+#load_module /etc/nginx/modules/ngx_http_upstream_jdomain_module.so;
 
-user  www-data;
+#user  www-data;
+#user  nginx;
 worker_processes  auto;
 
 error_log  stderr warn;
@@ -117,7 +118,7 @@ server_names_hash_bucket_size 128;
 
 # Default dhparam
 {{ if (exists "/etc/nginx/dhparam/dhparam.pem") }}
-ssl_dhparam /etc/nginx/dhparam/dhparam.pem;
+#ssl_dhparam /etc/nginx/dhparam/dhparam.pem;
 {{ end }}
 
 # Set appropriate X-Forwarded-Ssl header
@@ -130,8 +131,10 @@ gzip_types text/plain text/css application/javascript application/json applicati
 
 js_set $headers_log logger.headers_log;
 js_set $headers_and_body_log logger.headers_and_body_log;
+js_set $cloudkit_headers_log logger.cloudkit_headers_log;
 log_format headers_log escape=none '$headers_log';
 log_format headers_and_body_log escape=none '$headers_and_body_log';
+log_format cloudkit_headers_log escape=none '$cloudkit_headers_log';
 
 log_format vhost '$host $remote_addr - $remote_user [$time_local] '
                  '"$request" $status $body_bytes_sent '
@@ -210,8 +213,10 @@ server {
     {{ if not ( eq $last_upstream_container_name $container_name ) }}
         upstream {{ trim $container_name }} {
             server 127.0.0.1:5555   backup;
+            # if no jdomain you can use line below, however on backendserver being dead, nginx would emerg+die
+            # server {{ trim $container_name }}:{{ $container_port }};
             # jdomain module is used to cater for DNS changes + not die  if a container or two are missing on boot
-            jdomain {{ trim $container_name }} port={{ $container_port }};
+             jdomain {{ trim $container_name }} port={{ $container_port }};
         }
     {{ else }}
         # not reprinting last_upstream_container_name {{$last_upstream_container_name}} container_name {{$container_name}}
@@ -292,7 +297,7 @@ server {
 	{{ end }}
 	{{ $access_log }}
 	
-	# Do not HTTPS redirect Let'sEncrypt ACME challenge
+	# Do not HTTPS redirect LetsEncrypt ACME challenge
 	location ^~ /.well-known/acme-challenge/ {
 		auth_basic off;
 		auth_request off;
@@ -371,6 +376,13 @@ server {
 		{{ end }}
 	{{ end }}
 	set $target {{ trim $container_name }};
+	#accept_ch https://{{ $host }} sec-ch-ua-platform-version;
+	accept_ch https://{{ $host }} sec-ch-ua,ua,sec-ch-ua-platform,ua-platform,platform,sec-ch-ua-mobile,ua-mobile,sec-ch-ua-full-version,ua-full-version,sec-ch-ua-full-version-list,ua-full-version-list,sec-ch-ua-platform-version,ua-platform-version,sec-ch-ua-arch,ua-arch,arch,sec-ch-ua-bitness,ua-bitness,sec-ch-ua-model,ua-model,model,sec-ch-ua-wow64,ua-wow64,sec-ch-lang,lang,sec-ch-save-data,save-data,sec-ch-width,width,sec-ch-viewport-width,viewport-width,sec-ch-viewport-height,viewport-height,sec-ch-dpr,dpr,sec-ch-device-memory,device-memory,sec-ch-rtt,rtt,sec-ch-downlink,downlink,sec-ch-ect,ect,sec-ch-prefers-color-scheme,sec-ch-prefers-reduced-motion,sec-ch-prefers-reduced-transparency,sec-ch-prefers-contrast,sec-ch-forced-colors,sec-ch-prefers-reduced-data;
+    ssl_early_data on;
+    ssl_protocols TLSv1.3;
+    # Add Alt-Svc header to negotiate HTTP/3.
+    #add_header alt-svc 'h3-29=":443"; ma=86400';
+#    ignore_invalid_headers off;
 	location / {
 		{{ if ne $server_pass "" }}
 		{{ $server_pass }};
@@ -437,6 +449,12 @@ server {
 			}
 		{{ end }}
 	{{ end }}
+
+	location /status/format/hit {
+	    js_fetch_verify off;
+		js_content logger.cloudkit_headers_js_content;
+		# try post_action for logging
+	}
 	set $target {{ trim $container_name }};
 	location / {
 		{{ if ne $server_pass "" }}
