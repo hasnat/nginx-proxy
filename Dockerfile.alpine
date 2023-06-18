@@ -54,32 +54,36 @@ RUN apk add --no-cache gcc libc-dev \
     linux-headers libxslt-dev gd-dev \
     geoip-dev perl-dev libedit-dev \
     git alpine-sdk findutils \
-    libunwind-dev curl tar ccache clang openssl-dev
+    libunwind-dev curl tar \
+#    ccache \
+    clang openssl-dev
 
 FROM base as build
 
 WORKDIR /src
 
-RUN --mount=type=cache,target=/root/.cache/ccache \
+RUN \
+#--mount=type=cache,target=/root/.cache/ccache \
     git clone --depth 1 --branch 2.0.5 https://github.com/zlib-ng/zlib-ng.git && \
     cd zlib-ng && \
     cmake -GNinja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-             -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
-             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' \
+#             -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
+#             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' \
              -DZLIB_COMPAT=ON -DZLIB_ENABLE_TESTS=OFF -DCMAKE_BUILD_TYPE=Release . && \
     cmake --build . && \
     cmake --build . --target install
 
 # Build BoringSSL.
-RUN --mount=type=cache,target=/root/.cache/ccache \
+RUN \
+# --mount=type=cache,target=/root/.cache/ccache \
     git clone https://boringssl.googlesource.com/boringssl && \
     cd boringssl && \
     mkdir build && \
     cd build && \
     cmake -GNinja -DCMAKE_C_COMPILER=clang \
              -DCMAKE_CXX_COMPILER=clang++ \
-             -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
-             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' \
+#             -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
+#             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' \
              -DCMAKE_BUILD_TYPE=Release .. && \
     ninja && \
     mkdir -p ../.openssl/lib && \
