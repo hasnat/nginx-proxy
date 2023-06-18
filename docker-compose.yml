@@ -1,7 +1,7 @@
 version: '2.4'
 services:
   nginx-proxy:
-    image: hasnat/nginx-proxy:rc.combined.m1.2
+    #image: hasnat/nginx-proxy:rc.combined.m1.2
     build:
       context: .
       # OS_BASE e.g. `OS_BASE=.debian docker-compose up ....`

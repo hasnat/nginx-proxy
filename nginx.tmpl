@@ -4,7 +4,8 @@
 #load_module /etc/nginx/modules/ngx_http_headers_more_filter_module.so;
 #load_module /etc/nginx/modules/ngx_http_vhost_traffic_status_module.so;
 #load_module /etc/nginx/modules/ngx_http_upstream_jdomain_module.so;
-
+env CLOUDKIT_SKEY;
+env CLOUDKIT_KEYID;
 #user  www-data;
 #user  nginx;
 worker_processes  auto;
