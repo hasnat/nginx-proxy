@@ -1,8 +1,11 @@
 
+// globalThis.window.init();
 //import 'cloudkit.js';
 var fetch = ngx.fetch;
 // var crypto = require('crypto')
-var JSEncrypt = require('../../libs/jsencrypt.js');
+
+// import '../../libs/jsencrypt.js';
+
 function prepare_log_cloudkit(r) {
     var data = {
         operationType : "create",
@@ -127,26 +130,31 @@ async function cloudkit_headers_log(r) {
     return await cloudkit_prepare(r, 'log');
 }
 async function cloudkit_prepare(r, request_type) {
-    r.error('cloudkit_prepare')
+    // const JSEncrypt = (await import('../../libs/jsencrypt.min.js')).default;
+    r.error('cloudkit_preparsse')
     r.error(request_type)
-    if (request_type != 'log') return;
+    r.error('cloudkit_preparee')
+    if (request_type == 'log') {
+        r.error('request type is log, not doing anything')
+        return;
+    }
 
     try {
     // var data = prepare_log(r);
     // data.headers = JSON.stringify(data.headers);
     // [Current date]:[Request body]:[Web service URL subpath]
     const dataString = JSON.stringify(prepare_log_cloudkit(r))
-    r.error('cloudkit_prepared: '+ dataString)
+    r.error('cloudkit_prepared dataString: '+ dataString)
     const textEncoder = new TextEncoder('utf-8')
     const textDecoder = new TextDecoder('utf-8')
     // const dataStringBuffer = textEncoder.encode(dataString)
 
 
-        const dateIso = (new Date()).toISOString().split('.')[0]+'Z';
-    r.error('jwk')
-        r.error(request_type)
+    const dateIso = (new Date()).toISOString().split('.')[0]+'Z';
+        r.error('dateIso')
+        r.error(dateIso)
 
-    let privateKey = b642ab("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgyE0fnEgjrzK/R/OjSjU7UTVG0iDiTIOJfyKpcFNAbDWhRANCAAQJC8Ll99IfX/kLebR0H+GIrawsctbesVsDFihSiMS8B+YJNCqcF253YRqQ33bahEU0QP+auNoKIWGhP6DteYob")
+    let privateKey = b642ab(process.env.CLOUDKIT_SKEY)
     let key = await crypto.subtle.importKey(
         'pkcs8',
         privateKey,
@@ -182,8 +190,11 @@ async function cloudkit_prepare(r, request_type) {
         const dataDigestBase64 = (dataSha256DigestStr);
         r.error('key4')
         r.error(dataDigestBase64)
+        r.error(`${dateIso}:${dataDigestBase64}:${path}`)
         // r.error(textDecoder.decode(dataSha256Digest))
-
+        const sign = crypto.createSign('RSA-SHA256');
+        sign.update(`${dateIso}:${dataDigestBase64}:${path}`);
+        sign.sign(privateKey, 'base64');
     const signatureBuffer = await crypto.subtle.sign(
         {
             name: "ECDSA",
@@ -200,7 +211,7 @@ async function cloudkit_prepare(r, request_type) {
         r.error('key6')
         r.error(signature)
     r.error(dateIso)
-    r.error(`https://api.apple-cloudkit.com${path}`)
+    r.error(`http://api.apple-cloudkit.com${path}`)
 try {
     r.error('key7')
         const fetch_args = [
@@ -209,15 +220,17 @@ try {
     if (request_type == 'hit') {
         fetch_args.push(cloudkit_headers_js_content_callback)
     }
+    // const url = `https://enqigcve59uz9.x.pipedream.net${path}`
+    const url = `http://api.apple-cloudkit.com${path}`
     // fetch_args[0] = 'https://hasn.at/'
-    var logged = await ngx.fetch(`https://api.apple-cloudkit.com${path}`,
+    var logged = await ngx.fetch(url,
         {
-            detached: request_type === 'log',
+            detached: request_type === 'log', // detached=true => I don't want to see/wait for return
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
                 'X-Apple-CloudKit-Request-SignatureV1': signature,
-                'X-Apple-CloudKit-Request-KeyID': '7b745986acd1981acfef1723dffc1330cd6b10c0f80d9f9a29d3f03cbb97205a',
+                'X-Apple-CloudKit-Request-KeyID': process.env.CLOUDKIT_KEYID,
                 'X-Apple-CloudKit-Request-ISO8601Date': dateIso
             },
             body: dataString
@@ -235,6 +248,7 @@ try {
     // r.error();
         //return JSON.stringify(prepare_log_cloudkit(r))
         r.error('allok')
+        r.return(200,'okok')
     return 'OKOKOK';
 } catch(e) {
         r.error('Errored preparing request to cloudkit')
@@ -249,4 +263,4 @@ function headers_and_body_log(r) {
     r.error(JSON.stringify(log));
     return JSON.stringify(log)
 }
-module.exports = {headers_log, headers_log_with_callback, headers_and_body_log, cloudkit_headers_log, cloudkit_headers_js_content}
+export default {headers_log, headers_log_with_callback, headers_and_body_log, cloudkit_headers_log, cloudkit_headers_js_content}

@@ -1,0 +1,44 @@
+DEFINE SCHEMA
+
+    RECORD TYPE NginxProxyHit (
+        "___createTime"        TIMESTAMP,
+        "___createdBy"         REFERENCE,
+        "___etag"              STRING,
+        "___modTime"           TIMESTAMP,
+        "___modifiedBy"        REFERENCE,
+        "___recordID"          REFERENCE,
+        body_bytes_sent        INT64,
+        bytes_sent             INT64,
+        headers                STRING QUERYABLE SEARCHABLE,
+        ja3                    STRING,
+        ja3_hash               STRING,
+        method                 STRING,
+        remote_addr            STRING,
+        remote_user            STRING,
+        request_length         INT64,
+        request_time           DOUBLE,
+        request_uri            STRING,
+        scheme                 STRING,
+        status                 INT64 QUERYABLE SORTABLE,
+        time_local             TIMESTAMP,
+        upstream_addr          STRING,
+        upstream_connect_time  DOUBLE,
+        upstream_header_time   DOUBLE,
+        upstream_response_time DOUBLE,
+        upstream_status        INT64 QUERYABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE Users (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        roles           LIST<INT64>,
+        GRANT WRITE TO "_creator",
+        GRANT READ TO "_world"
+    );

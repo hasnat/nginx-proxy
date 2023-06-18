@@ -19,7 +19,9 @@ events {
 
 
 http {
-    js_import /njs/logger/logger.js;
+#    js_path "/njs/";
+    js_import /njs/dist/njsbin.js;
+    js_fetch_trusted_certificate /njs/BaltimoreCyberTrustRoot.pem;
 
 
     include       /etc/nginx/mime.types;
@@ -129,9 +131,9 @@ map $scheme $proxy_x_forwarded_ssl {
 
 gzip_types text/plain text/css application/javascript application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
 
-js_set $headers_log logger.headers_log;
-js_set $headers_and_body_log logger.headers_and_body_log;
-js_set $cloudkit_headers_log logger.cloudkit_headers_log;
+js_set $headers_log njsbin.logger.headers_log;
+js_set $headers_and_body_log njsbin.logger.headers_and_body_log;
+js_set $cloudkit_headers_log njsbin.logger.cloudkit_headers_log;
 log_format headers_log escape=none '$headers_log';
 log_format headers_and_body_log escape=none '$headers_and_body_log';
 log_format cloudkit_headers_log escape=none '$cloudkit_headers_log';
@@ -168,9 +170,40 @@ proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
 # Mitigate httpoxy attack (see README for details)
 proxy_set_header Proxy "";
 {{ end }}
-
+log_subrequest on;
 {{ $access_log := (or (and (not $.Env.DISABLE_ACCESS_LOGS) "access_log /dev/stdout vhost;") "") }}
+server {
+    listen 127.0.0.1:55555;
+    access_log /dev/stdout headers_log;
+    location / {
+        js_content njsbin.logger.cloudkit_headers_js_content;
+    }
+}
 
+upstream cloudkit-log-auth-server {
+        server         unix:cloudkit-log-auth-server.sock;
+    }
+    # cloudkit-log-auth-server
+    server {
+        listen         unix:cloudkit-log-auth-server.sock;
+        error_page 401 = @log_it;
+        error_page 403 = @log_it;
+
+        location /log-it {
+            auth_basic             "-"; # auth dialog title
+            auth_basic_user_file   /dev/null;
+            # you cannot do staright 204
+            try_files DUMMY DUMMY2;
+        }
+        location @log_it {
+            internal;
+            # add response headers on authentication subrequest response
+            #add_header X-Device-browserName "$da_browserName";
+            js_content njsbin.logger.cloudkit_headers_js_content;
+            return 200;
+        }
+
+    }
 server {
     listen 127.0.0.1:5555;
     return 503;
@@ -240,6 +273,7 @@ server {
 
 {{ $vhost_conf := trim (or (first (groupByKeys $containers "Env.VHOST_CONF")) "") }}
 {{ $vhost_server_conf := trim (or (first (groupByKeys $containers "Env.VHOST_SERVER_CONF")) "") }}
+{{ $vhost_root_conf := trim (or (first (groupByKeys $containers "Env.VHOST_ROOT_CONF")) "") }}
 {{ $vhost_location_conf := trim (or (first (groupByKeys $containers "Env.VHOST_LOCATION_CONF")) "") }}
 {{ $vhost_vts_conf := trim (or (first (groupByKeys $containers "Env.VHOST_VTS_CONF")) "") }}
 {{ $vhost_vts_enable := eq (or (trim (or (first (groupByKeys $containers "Env.VHOST_VTS_ENABLE")) "")) "") "true" }}
@@ -320,6 +354,7 @@ server {
 	}
 }
 {{ end }}
+{{ $vhost_root_conf }}
 
 server {
 	server_name {{ $host }};
@@ -452,7 +487,7 @@ server {
 
 	location /status/format/hit {
 	    js_fetch_verify off;
-		js_content logger.cloudkit_headers_js_content;
+		js_content njsbin.logger.cloudkit_headers_js_content;
 		# try post_action for logging
 	}
 	set $target {{ trim $container_name }};
