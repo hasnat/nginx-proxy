@@ -18,6 +18,7 @@ services:
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/tmp/docker.sock:ro"
+      - "./njs/dist:/njs/dist:ro"
       - "${DA_SSL_CERTS_LOCATION:-./container-data/nginx-proxy/certs}:/etc/nginx/certs"
 
   caddy-proxy:
@@ -60,6 +61,39 @@ services:
       - "VHOST_ACCESS_LOG=access_log /dev/stdout cloudkit_headers_log;"
 
 
+  certified-local:
+    container_name: certified-local
+    image: hasnat/request-headers-dump
+    restart: always
+    platform: linux/amd64
+    environment:
+      - VIRTUAL_HOST=certified-local.local.vexstud.io,certified-local.eu.vexstud.io
+      - VIRTUAL_PORT=8080
+      - HTTPS_METHOD=noredirect
+      #- "VHOST_ACCESS_LOG=access_log /dev/stdout cloudkit_headers_log;"
+#      - "VHOST_ROOT_CONF=# mirror server"
+#      - "VHOST_LOCATION_CONF=location / { auth_request /log-it; default_type text/plain; return 200 'hello world';} location /log-it {internal; proxy_pass http://cloudkit-log-auth-server;  }"
+      - "VHOST_LOCATION_CONF=location / { default_type text/plain; js_content njsbin.logger.cloudkit_headers_js_content; }"
+
+
+  https-subrequest-test:
+    container_name: https-subrequest-test
+    build:
+      context: .
+      dockerfile: ./njs/Dockerfile.njs.boringssl
+    restart: always
+#    volumes:
+#      - "./njs/testhttps.js:/njs/testhttps.js"
+#      - "./njs/testhttps.conf:/etc/nginx/nginx.conf"
+    #platform: linux/amd64
+    environment:
+      - VIRTUAL_HOST=https-subrequest-test.local.vexstud.io
+      - VIRTUAL_PORT=80
+      - HTTPS_METHOD=noredirect
+      #- "VHOST_ACCESS_LOG=access_log /dev/stdout cloudkit_headers_log;"
+      #      - "VHOST_ROOT_CONF=# mirror server"
+      #      - "VHOST_LOCATION_CONF=location / { auth_request /log-it; default_type text/plain; return 200 'hello world';} location /log-it {internal; proxy_pass http://cloudkit-log-auth-server;  }"
+#      - "VHOST_LOCATION_CONF=location / { js_content njsbin.logger.cloudkit_headers_js_content; }"
 
   whoami-vts:
     container_name: whoami-vts

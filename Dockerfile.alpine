@@ -1,5 +1,6 @@
 # Accept the Go version for the image to be set as a build argument.
 # Default to Go 1.16.
+ARG ALPINE_VERSION=3.16
 ARG GO_VERSION=1.17
 # Use a specific version of golang to build both binaries
 FROM golang:${GO_VERSION} as gobuilder
@@ -36,12 +37,14 @@ RUN git clone https://github.com/nginx-proxy/forego/ \
 
 
 
-FROM golang:${GO_VERSION}-alpine3.15 as base
+FROM golang:${GO_VERSION}-alpine${ALPINE_VERSION} as base
 
 LABEL maintainer="Hasnat Ullah <hasnat@mac.com>"
 
 ENV NGINX_VERSION 1.22.0
-ENV NJS_VERSION 0.7.4
+#ENV NJS_VERSION 0.7.12
+#ENV NJS_VERSION 0.7.4
+ENV NJS_VERSION 0.7.9
 ENV CFLAGS "-O3"
 ENV CXXFLAGS "-O3"
 
@@ -51,7 +54,7 @@ RUN apk add --no-cache gcc libc-dev \
     linux-headers libxslt-dev gd-dev \
     geoip-dev perl-dev libedit-dev \
     git alpine-sdk findutils \
-    libunwind-dev curl tar ccache clang
+    libunwind-dev curl tar ccache clang openssl-dev
 
 FROM base as build
 
@@ -76,7 +79,8 @@ RUN --mount=type=cache,target=/root/.cache/ccache \
     cmake -GNinja -DCMAKE_C_COMPILER=clang \
              -DCMAKE_CXX_COMPILER=clang++ \
              -DCMAKE_C_COMPILER_LAUNCHER='/usr/bin/ccache' \
-             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' -DCMAKE_BUILD_TYPE=Release .. && \
+             -DCMAKE_CXX_COMPILER_LAUNCHER='/usr/bin/ccache' \
+             -DCMAKE_BUILD_TYPE=Release .. && \
     ninja && \
     mkdir -p ../.openssl/lib && \
     cd ../.openssl && \
@@ -121,8 +125,16 @@ COPY temp/ngx_http_request.c nginx/src/http/ngx_http_request.c
 COPY temp/ngx_http_core_module.c nginx/src/http/ngx_http_core_module.c
 COPY temp/ngx_http_core_module.h nginx/src/http/ngx_http_core_module.h
 COPY temp/modules/ngx_http_ssl_module.c nginx/src/http/modules/ngx_http_ssl_module.c
+#RUN apk add --no-cache python3
+#RUN mkdir libxslt \
+#    && curl -SL https://gitlab.gnome.org/GNOME/libxslt/-/archive/v1.1.37/libxslt-v1.1.37.tar.gz | tar xz -C libxslt --strip-components=1
+#RUN cd libxslt && ./autogen.sh
+#RUN cd libxslt &&  ./configure && make &&  make install
+#
+##RUN cd libxslt && ls -lah
 
-
+#RUN #cp -r /usr/include/libxslt /usr/local/
+#RUN ls -lah /usr/local/libxslt && exit 1
 RUN cd nginx && ./configure --prefix=/usr/share/nginx \
                    --sbin-path=/usr/bin/nginx \
                    --conf-path=/etc/nginx/nginx.conf \
@@ -144,6 +156,7 @@ RUN cd nginx && ./configure --prefix=/usr/share/nginx \
                    --with-http_stub_status_module \
                    --with-http_auth_request_module \
                    --without-select_module \
+#                   --with-http_xslt_module \
                    --without-poll_module \
 #                   --without-http_access_module \
 #                   --without-http_auth_basic_module \
@@ -169,8 +182,8 @@ RUN cd nginx && ./configure --prefix=/usr/share/nginx \
                    --add-module=/src/ngx-upstream-jdomain \
                    --add-module=/src/nginx-module-vts \
                    --with-openssl="/src/boringssl" \
-                   --with-cc-opt="-I /src/boringssl/.openssl/include/" \
-                   --with-ld-opt="-static -Wl,-Bsymbolic-functions -Wl,-z,relro -L /src/boringssl/.openssl/lib/" \
+                   --with-cc-opt="-I /src/boringssl/.openssl/include/  " \
+                   --with-ld-opt="-static -Wl,-Bsymbolic-functions -Wl,-z,relro -L /src/boringssl/.openssl/lib/ " \
                    --with-cpu-opt=generic \
     && touch "/src/boringssl/.openssl/include/openssl/ssl.h" \
     && make && make install
@@ -186,7 +199,7 @@ RUN mkdir /user \
     && echo '1000:x:65534:' > /user/group
 
 # Final stage: the running container.
-FROM alpine:3.15.7
+FROM alpine:${ALPINE_VERSION}
 RUN apk add --no-cache bash
 
 # # Import the user and group files from the build stage.

@@ -1,0 +1,4 @@
+- clean loggers
+- clean, libs to links
+- create nginx patch from src
+- clean patch
