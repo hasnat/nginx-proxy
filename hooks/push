@@ -2,7 +2,8 @@
 echo "=-=-=-=-= Pushing Images =-=-=-=-="
 docker buildx build \
   --push \
-  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
+#  --platform linux/arm64/v8,linux/amd64,linux/arm/v6,linux/arm/v7 \
+  --platform linux/arm64,linux/amd64 \
   --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
   --build-arg VERSION=$(cat VERSION) \
   --build-arg VCS_REF=$(git rev-parse --short HEAD) \
