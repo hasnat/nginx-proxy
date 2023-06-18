@@ -2,7 +2,7 @@
 //import 'cloudkit.js';
 var fetch = ngx.fetch;
 // var crypto = require('crypto')
-
+var JSEncrypt = require('../../libs/jsencrypt.js');
 function prepare_log_cloudkit(r) {
     var data = {
         operationType : "create",
@@ -127,13 +127,16 @@ async function cloudkit_headers_log(r) {
     return await cloudkit_prepare(r, 'log');
 }
 async function cloudkit_prepare(r, request_type) {
-    if (request_type == 'log') return;
+    r.error('cloudkit_prepare')
+    r.error(request_type)
+    if (request_type != 'log') return;
 
     try {
     // var data = prepare_log(r);
     // data.headers = JSON.stringify(data.headers);
     // [Current date]:[Request body]:[Web service URL subpath]
     const dataString = JSON.stringify(prepare_log_cloudkit(r))
+    r.error('cloudkit_prepared: '+ dataString)
     const textEncoder = new TextEncoder('utf-8')
     const textDecoder = new TextDecoder('utf-8')
     // const dataStringBuffer = textEncoder.encode(dataString)
@@ -246,4 +249,4 @@ function headers_and_body_log(r) {
     r.error(JSON.stringify(log));
     return JSON.stringify(log)
 }
-export default {headers_log, headers_log_with_callback, headers_and_body_log, cloudkit_headers_log, cloudkit_headers_js_content}
+module.exports = {headers_log, headers_log_with_callback, headers_and_body_log, cloudkit_headers_log, cloudkit_headers_js_content}
