@@ -160,6 +160,7 @@ RUN cd nginx && ./configure --prefix=/usr/share/nginx \
                    --with-http_stub_status_module \
                    --with-http_auth_request_module \
                    --without-select_module \
+                   --without-stream \
 #                   --with-http_xslt_module \
                    --without-poll_module \
 #                   --without-http_access_module \
